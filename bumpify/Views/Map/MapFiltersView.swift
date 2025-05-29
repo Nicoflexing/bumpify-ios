@@ -1,197 +1,144 @@
-// MapFiltersView.swift
-// Speichere diese Datei unter: bumpify/Views/Map/MapFiltersView.swift
+// MapFiltersView.swift - Erstelle diese Datei in: Views/Map/MapFiltersView.swift
 
 import SwiftUI
 
 struct MapFiltersView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedCategory = "Alle"
-    @State private var maxDistance = 5.0
     @State private var showUserEvents = true
     @State private var showBusinessEvents = true
-    @State private var showActiveOnly = false
-    @State private var selectedTimeRange = "Heute"
+    @State private var showTodayOnly = false
+    @State private var maxDistance: Double = 5.0
+    @State private var selectedCategories: Set<String> = ["Alle"]
     
-    let categories = ["Alle", "Dating", "Freunde", "Business", "Sport", "Kultur", "Essen"]
-    let timeRanges = ["Jetzt", "Heute", "Diese Woche", "Immer"]
+    let categories = ["Alle", "Dating", "Freunde", "Sport", "Kultur", "Essen", "Business"]
     
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color(red: 0.12, green: 0.16, blue: 0.24)
+                    .ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 30) {
+                    VStack(spacing: 25) {
                         // Header
-                        VStack(spacing: 16) {
-                            Text("🗺️ Karten-Filter")
-                                .font(.title)
+                        VStack(spacing: 10) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 50))
+                                .foregroundColor(.orange)
+                            
+                            Text("Karten-Filter")
+                                .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
-                            
-                            Text("Passe die Anzeige der Karte an deine Wünsche an")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
                         }
                         .padding(.top, 20)
                         
+                        // Event Types
+                        VStack(spacing: 15) {
+                            FilterSectionHeader(title: "Event-Typen")
+                            
+                            FilterToggleItem(
+                                icon: "person.2.fill",
+                                title: "User Events",
+                                subtitle: "Von Nutzern erstellte Treffpunkte",
+                                isOn: $showUserEvents,
+                                color: .orange
+                            )
+                            
+                            FilterToggleItem(
+                                icon: "building.2.fill",
+                                title: "Business Events",
+                                subtitle: "Angebote von Unternehmen",
+                                isOn: $showBusinessEvents,
+                                color: .green
+                            )
+                            
+                            FilterToggleItem(
+                                icon: "clock.fill",
+                                title: "Nur heute",
+                                subtitle: "Nur Events von heute anzeigen",
+                                isOn: $showTodayOnly,
+                                color: .blue
+                            )
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        
                         // Distance Filter
-                        VStack(alignment: .leading, spacing: 15) {
-                            Text("📍 Entfernung")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
+                        VStack(spacing: 15) {
+                            FilterSectionHeader(title: "Entfernung")
                             
                             VStack(spacing: 12) {
                                 HStack {
-                                    Text("Radius: \(Int(maxDistance)) km")
-                                        .font(.body)
+                                    Text("Maximale Entfernung:")
                                         .foregroundColor(.white)
                                     
                                     Spacer()
                                     
-                                    Text("Max: 25 km")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
+                                    Text("\(String(format: "%.1f", maxDistance)) km")
+                                        .font(.headline)
+                                        .foregroundColor(.orange)
                                 }
                                 
-                                Slider(value: $maxDistance, in: 1...25, step: 1)
+                                Slider(value: $maxDistance, in: 0.5...20.0, step: 0.5)
                                     .tint(.orange)
-                                
-                                HStack {
-                                    Text("1 km")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    
-                                    Spacer()
-                                    
-                                    Text("25 km")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
                             }
                             .padding()
-                            .background(Color.white.opacity(0.05))
-                            .cornerRadius(12)
+                            .background(Color.white.opacity(0.02))
+                            .cornerRadius(10)
                         }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
                         
-                        // Category Filter
-                        VStack(alignment: .leading, spacing: 15) {
-                            Text("🏷️ Kategorie")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
+                        // Categories
+                        VStack(spacing: 15) {
+                            FilterSectionHeader(title: "Kategorien")
                             
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 10) {
                                 ForEach(categories, id: \.self) { category in
-                                    Button(action: {
-                                        selectedCategory = category
-                                    }) {
-                                        Text(category)
-                                            .font(.body)
-                                            .padding()
-                                            .frame(maxWidth: .infinity)
-                                            .background(
-                                                selectedCategory == category ?
-                                                Color.orange.opacity(0.3) :
-                                                Color.white.opacity(0.1)
-                                            )
-                                            .foregroundColor(selectedCategory == category ? .orange : .white)
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(selectedCategory == category ? Color.orange : Color.clear, lineWidth: 1)
-                                            )
+                                    CategoryFilterButton(
+                                        category: category,
+                                        isSelected: selectedCategories.contains(category)
+                                    ) {
+                                        if category == "Alle" {
+                                            if selectedCategories.contains("Alle") {
+                                                selectedCategories.removeAll()
+                                            } else {
+                                                selectedCategories = Set(categories)
+                                            }
+                                        } else {
+                                            if selectedCategories.contains(category) {
+                                                selectedCategories.remove(category)
+                                                selectedCategories.remove("Alle")
+                                            } else {
+                                                selectedCategories.insert(category)
+                                                if selectedCategories.count == categories.count - 1 {
+                                                    selectedCategories.insert("Alle")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
                         
-                        // Event Type Filter
-                        VStack(alignment: .leading, spacing: 15) {
-                            Text("🎯 Event-Typen")
+                        // Reset Button
+                        Button(action: resetFilters) {
+                            Text("Filter zurücksetzen")
                                 .font(.headline)
-                                .fontWeight(.bold)
                                 .foregroundColor(.white)
-                            
-                            VStack(spacing: 12) {
-                                FilterToggleRow(
-                                    icon: "person.2.fill",
-                                    title: "User Events",
-                                    subtitle: "Von Nutzern erstellte Hotspots",
-                                    isOn: $showUserEvents,
-                                    color: .orange
-                                )
-                                
-                                FilterToggleRow(
-                                    icon: "building.2.fill",
-                                    title: "Business Events",
-                                    subtitle: "Angebote von Unternehmen",
-                                    isOn: $showBusinessEvents,
-                                    color: .green
-                                )
-                                
-                                FilterToggleRow(
-                                    icon: "clock.fill",
-                                    title: "Nur aktive Events",
-                                    subtitle: "Verstecke vergangene Events",
-                                    isOn: $showActiveOnly,
-                                    color: .blue
-                                )
-                            }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.red.opacity(0.2))
+                                .cornerRadius(12)
                         }
                         
-                        // Time Range Filter
-                        VStack(alignment: .leading, spacing: 15) {
-                            Text("⏰ Zeitraum")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            
-                            HStack(spacing: 8) {
-                                ForEach(timeRanges, id: \.self) { timeRange in
-                                    Button(action: {
-                                        selectedTimeRange = timeRange
-                                    }) {
-                                        Text(timeRange)
-                                            .font(.body)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                selectedTimeRange == timeRange ?
-                                                Color.orange :
-                                                Color.white.opacity(0.1)
-                                            )
-                                            .foregroundColor(.white)
-                                            .cornerRadius(20)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Active Filters Summary
-                        VStack(alignment: .leading, spacing: 15) {
-                            Text("✅ Aktuelle Filter")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("• Radius: \(Int(maxDistance)) km")
-                                Text("• Kategorie: \(selectedCategory)")
-                                Text("• Zeitraum: \(selectedTimeRange)")
-                                Text("• User Events: \(showUserEvents ? "An" : "Aus")")
-                                Text("• Business Events: \(showBusinessEvents ? "An" : "Aus")")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding()
-                            .background(Color.white.opacity(0.05))
-                            .cornerRadius(12)
-                        }
-                        
-                        Spacer().frame(height: 100)
+                        Spacer().frame(height: 50)
                     }
                     .padding()
                 }
@@ -206,8 +153,9 @@ struct MapFiltersView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Zurücksetzen") {
-                        resetFilters()
+                    Button("Anwenden") {
+                        // Apply filters
+                        dismiss()
                     }
                     .foregroundColor(.orange)
                 }
@@ -216,16 +164,31 @@ struct MapFiltersView: View {
     }
     
     private func resetFilters() {
-        selectedCategory = "Alle"
-        maxDistance = 5.0
         showUserEvents = true
         showBusinessEvents = true
-        showActiveOnly = false
-        selectedTimeRange = "Heute"
+        showTodayOnly = false
+        maxDistance = 5.0
+        selectedCategories = ["Alle"]
     }
 }
 
-struct FilterToggleRow: View {
+// MARK: - Filter Components
+struct FilterSectionHeader: View {
+    let title: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            Spacer()
+        }
+    }
+}
+
+struct FilterToggleItem: View {
     let icon: String
     let title: String
     let subtitle: String
@@ -256,11 +219,33 @@ struct FilterToggleRow: View {
                 .tint(.orange)
         }
         .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+        .background(Color.white.opacity(0.02))
+        .cornerRadius(10)
     }
 }
 
-#Preview {
-    MapFiltersView()
+struct CategoryFilterButton: View {
+    let category: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(category)
+                .font(.body)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(
+                    isSelected ?
+                    Color.orange.opacity(0.3) :
+                    Color.white.opacity(0.1)
+                )
+                .foregroundColor(isSelected ? .orange : .white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 1)
+                )
+        }
+    }
 }

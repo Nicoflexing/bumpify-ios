@@ -1,6 +1,5 @@
-// BLEManager.swift - Korrigierte Version für iOS 17+
-// Professioneller BLE-Manager für Bumpify mit Patent-Features
 
+// BLEManager.swift - Korrigierte Version ohne Konflikte
 import CoreBluetooth
 import CoreLocation
 import Foundation
@@ -14,8 +13,8 @@ class BumpifyBLEManager: NSObject, ObservableObject {
     @Published var isAdvertising = false
     @Published var bluetoothReady = false
     @Published var bluetoothStatus = "Initialisierung..."
-    @Published var nearbyUsers: [DetectedUser] = []
-    @Published var recentBumps: [BumpEvent] = []
+    @Published var nearbyUsers: [BLEDiscoveredUser] = []
+    @Published var recentBumps: [BLEBumpEvent] = []
     
     // MARK: - Core Bluetooth Properties
     private var centralManager: CBCentralManager!
@@ -35,9 +34,9 @@ class BumpifyBLEManager: NSObject, ObservableObject {
     // MARK: - Detection Logic
     private var detectionThresholdRSSI: Int = -75 // ~10 meter detection range
     private var minimumContactTime: TimeInterval = 1.0 // Minimum 1 second contact
-    private var userDetectionCache: [String: DetectedUser] = [:]
+    private var userDetectionCache: [String: BLEDiscoveredUser] = [:]
     
-    // MARK: - Background Support (Korrigiert für iOS 17+)
+    // MARK: - Background Support
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     
     override init() {
@@ -173,14 +172,13 @@ class BumpifyBLEManager: NSObject, ObservableObject {
         print("⏹️ BLE Advertising gestoppt")
     }
     
-    // MARK: - iBeacon Operations (Korrigiert für iOS 17+)
+    // MARK: - iBeacon Operations
     private func startBeaconMonitoring() {
         guard CLLocationManager.locationServicesEnabled() else {
             print("❌ Location services not enabled")
             return
         }
         
-        // Korrigierte iBeacon-Region-Erstellung
         guard let uuid = UUID(uuidString: bumpifyServiceUUID) else {
             print("❌ Invalid UUID for beacon region")
             return
@@ -246,17 +244,16 @@ class BumpifyBLEManager: NSObject, ObservableObject {
     
     private func generateNewRotatingID() {
         // Generate new rotating minor value (privacy feature from patent)
-        // Sichere Konvertierung für UInt16 (0-65535)
         let currentTime = Date().timeIntervalSince1970
         let timeSlot = Int(currentTime / 900) // 15-minute intervals
-        let timestamp = UInt16(timeSlot % 65535) // Nur die letzten Bits verwenden
+        let timestamp = UInt16(timeSlot % 65535)
         
         let userHashValue = abs(currentUserID.hashValue) % 65535
         let userHash = UInt16(userHashValue)
         
         currentMinor = (timestamp ^ userHash) % 65535
         
-        print("🔄 Generated new rotating ID: \(currentMinor) (from timestamp: \(timestamp), userHash: \(userHash))")
+        print("🔄 Generated new rotating ID: \(currentMinor)")
     }
     
     private func restartAdvertising() {
@@ -272,19 +269,19 @@ class BumpifyBLEManager: NSObject, ObservableObject {
     private func createManufacturerData() -> Data {
         var data = Data()
         
-        // Bumpify Company ID (würde beim Bluetooth SIG registriert)
-        data.append(contentsOf: [0xFF, 0xBF]) // Bumpify ID
+        // Bumpify Company ID
+        data.append(contentsOf: [0xFF, 0xBF])
         
         // Protocol Version
         data.append(UInt8(1))
         
         // User Mode Flags
-        data.append(UInt8(0x01)) // Standard user mode
+        data.append(UInt8(0x01))
         
         // Battery Level (mock)
-        data.append(UInt8(85)) // 85%
+        data.append(UInt8(85))
         
-        // Timestamp (for sync)
+        // Timestamp
         let timestamp = UInt32(Date().timeIntervalSince1970)
         data.append(contentsOf: withUnsafeBytes(of: timestamp.littleEndian) { Array($0) })
         
@@ -299,7 +296,7 @@ class BumpifyBLEManager: NSObject, ObservableObject {
     ) {
         let rssiValue = rssi.intValue
         
-        // Filter by RSSI threshold (distance-based filtering)
+        // Filter by RSSI threshold
         guard rssiValue >= detectionThresholdRSSI else {
             return
         }
@@ -320,8 +317,7 @@ class BumpifyBLEManager: NSObject, ObservableObject {
     }
     
     private func calculateDistance(rssi: Int) -> Double {
-        // Patent-based distance calculation
-        let txPower = -59.0 // Measured power at 1 meter
+        let txPower = -59.0
         
         if rssi == 0 {
             return -1.0
@@ -336,13 +332,13 @@ class BumpifyBLEManager: NSObject, ObservableObject {
         identifier: String,
         rssi: Int,
         distance: Double
-    ) -> DetectedUser {
+    ) -> BLEDiscoveredUser {
         
         let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? "Unknown"
         let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
         let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data
         
-        return DetectedUser(
+        return BLEDiscoveredUser(
             id: identifier,
             name: name,
             rssi: rssi,
@@ -354,12 +350,12 @@ class BumpifyBLEManager: NSObject, ObservableObject {
         )
     }
     
-    private func processBumpDetection(user: DetectedUser) {
+    private func processBumpDetection(user: BLEDiscoveredUser) {
         let userId = user.id
         
         if let existingUser = userDetectionCache[userId] {
             // Update existing detection
-            var updatedUser = DetectedUser(
+            var updatedUser = BLEDiscoveredUser(
                 id: user.id,
                 name: user.name,
                 rssi: user.rssi,
@@ -393,10 +389,10 @@ class BumpifyBLEManager: NSObject, ObservableObject {
         }
     }
     
-    private func triggerBumpEvent(user: DetectedUser) {
+    private func triggerBumpEvent(user: BLEDiscoveredUser) {
         print("🎯 BUMP DETECTED! User: \(user.name) at \(String(format: "%.1f", user.distance))m")
         
-        let bumpEvent = BumpEvent(
+        let bumpEvent = BLEBumpEvent(
             id: UUID().uuidString,
             detectedUser: user,
             timestamp: Date(),
@@ -414,15 +410,14 @@ class BumpifyBLEManager: NSObject, ObservableObject {
         }
     }
     
-    private func notifyBumpDetected(_ bump: BumpEvent) {
-        // Send notification that can be observed by the UI
+    private func notifyBumpDetected(_ bump: BLEBumpEvent) {
         NotificationCenter.default.post(
             name: .bumpDetected,
             object: bump
         )
     }
     
-    // MARK: - Background Execution (Korrigiert für iOS 17+)
+    // MARK: - Background Execution
     private func setupBackgroundExecution() {
         guard backgroundTask == .invalid else { return }
         
@@ -507,7 +502,6 @@ extension BumpifyBLEManager: CBCentralManagerDelegate {
         )
     }
     
-    // MARK: - Background Restoration
     func centralManager(_ central: CBCentralManager, willRestoreState dict: [String : Any]) {
         print("🔄 Central Manager restoring state")
         
@@ -601,7 +595,6 @@ extension BumpifyBLEManager: CLLocationManagerDelegate {
         print("📍 Exited Bumpify region")
     }
     
-    // Korrigierte Beacon-Ranging-Methode für iOS 13+
     @available(iOS 13.0, *)
     func locationManager(_ manager: CLLocationManager, didRange beacons: [CLBeacon], satisfying beaconConstraint: CLBeaconIdentityConstraint) {
         for beacon in beacons {
@@ -621,8 +614,8 @@ extension BumpifyBLEManager: CLLocationManagerDelegate {
     }
 }
 
-// MARK: - Data Models
-struct DetectedUser: Identifiable, Equatable {
+// MARK: - BLE Data Models (eindeutige Namen)
+struct BLEDiscoveredUser: Identifiable, Equatable {
     let id: String
     let name: String
     let rssi: Int
@@ -633,7 +626,6 @@ struct DetectedUser: Identifiable, Equatable {
     let manufacturerData: Data?
     var hasBumped: Bool
     
-    // Hauptinitialisierung mit allen Parametern
     init(id: String, name: String, rssi: Int, distance: Double, firstDetected: Date, lastSeen: Date, services: [CBUUID], manufacturerData: Data?, hasBumped: Bool = false) {
         self.id = id
         self.name = name
@@ -646,14 +638,14 @@ struct DetectedUser: Identifiable, Equatable {
         self.hasBumped = hasBumped
     }
     
-    static func == (lhs: DetectedUser, rhs: DetectedUser) -> Bool {
+    static func == (lhs: BLEDiscoveredUser, rhs: BLEDiscoveredUser) -> Bool {
         return lhs.id == rhs.id
     }
 }
 
-struct BumpEvent: Identifiable {
+struct BLEBumpEvent: Identifiable {
     let id: String
-    let detectedUser: DetectedUser
+    let detectedUser: BLEDiscoveredUser
     let timestamp: Date
     let location: String
     let distance: Double

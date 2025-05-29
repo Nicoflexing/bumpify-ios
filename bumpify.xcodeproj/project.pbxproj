@@ -50,6 +50,7 @@
 				ContentView.swift,
 				Models/AdditionalModels.swift,
 				Models/BumpifyUser.swift,
+				Models/BumpNotificationModel.swift,
 				Notifications/BumpNotificationView.swift,
 				Notifications/NotificationSettingsView.swift,
 				"Preview Content/Preview Assets.xcassets",

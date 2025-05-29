@@ -284,7 +284,7 @@ struct NotificationSettingsView: View {
                 
                 if bumpFrequency != "Sofort" {
                     ImportantNoteCard(
-                        title: finmFrequencyDesc(),
+                        title: frequencyDesc(),
                         message: "Du könntest wichtige Begegnungen verpassen.",
                         type: .warning
                     )
