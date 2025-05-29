@@ -1,688 +1,420 @@
+// MapView.swift - Figma Design Implementation
+
 import SwiftUI
 import MapKit
 
 struct MapView: View {
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 49.2041, longitude: 7.3066), // Zweibrücken
-        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+    @State private var cameraPosition = MapCameraPosition.region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 49.2041, longitude: 7.3066),
+            span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+        )
     )
+    @State private var searchText = ""
     @State private var showingFilters = false
-    @State private var showingCreateHotspot = false
-    @State private var hotspots: [BumpifyHotspot] = []
-    @State private var nearbyUsers: [BumpifyUser] = []
-    @State private var selectedHotspot: BumpifyHotspot?
+    @State private var selectedHotspot: FigmaHotspot?
+    @State private var showingHotspotDetail = false
+    
+    // Sample hotspots matching the Figma design
+    private let figmaHotspots: [FigmaHotspot] = [
+        FigmaHotspot(id: "1", name: "Café Central", description: "Free Coffee Today! 2-4pm", coordinate: CLLocationCoordinate2D(latitude: 49.2041, longitude: 7.3066), type: .business, distance: "120m", icon: "cup.and.saucer.fill"),
+        FigmaHotspot(id: "2", name: "Skatepark Treff", description: "Casual skating session, beginners welcome!", coordinate: CLLocationCoordinate2D(latitude: 49.2045, longitude: 7.3070), type: .user, distance: "180m", icon: "figure.skating"),
+        FigmaHotspot(id: "3", name: "Yoga Studio", description: "Group session starting in 30 mins", coordinate: CLLocationCoordinate2D(latitude: 49.2038, longitude: 7.3062), type: .business, distance: "250m", icon: "figure.yoga"),
+        FigmaHotspot(id: "4", name: "Study Group", description: "Mathematics study group", coordinate: CLLocationCoordinate2D(latitude: 49.2048, longitude: 7.3075), type: .user, distance: "320m", icon: "book.fill"),
+        FigmaHotspot(id: "5", name: "Food Truck", description: "Best tacos in town!", coordinate: CLLocationCoordinate2D(latitude: 49.2035, longitude: 7.3058), type: .business, distance: "150m", icon: "fork.knife"),
+        FigmaHotspot(id: "6", name: "Basketball Court", description: "Pick-up game starting now", coordinate: CLLocationCoordinate2D(latitude: 49.2052, longitude: 7.3080), type: .user, distance: "400m", icon: "basketball.fill"),
+        FigmaHotspot(id: "7", name: "Art Gallery", description: "New exhibition opening", coordinate: CLLocationCoordinate2D(latitude: 49.2030, longitude: 7.3050), type: .business, distance: "500m", icon: "paintbrush.fill"),
+        FigmaHotspot(id: "8", name: "Dog Park", description: "Daily dog meetup", coordinate: CLLocationCoordinate2D(latitude: 49.2055, longitude: 7.3085), type: .user, distance: "480m", icon: "pawprint.fill")
+    ]
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Header with search and filters
+                headerView
                 
-                VStack(spacing: 20) {
-                    // Header
-                    headerSection
-                    
-                    // Map Container
-                    mapSection
-                    
-                    // Stats
-                    statsSection
-                    
-                    // Create Hotspot Button
-                    createHotspotButton
-                }
+                // Map with custom styling
+                mapView
+                
+                // Bottom hotspots list
+                bottomHotspotsList
             }
         }
         .sheet(isPresented: $showingFilters) {
-            MapFiltersView()
-        }
-        .sheet(isPresented: $showingCreateHotspot) {
-            CreateHotspotView()
+            FiltersSheet()
         }
         .sheet(item: $selectedHotspot) { hotspot in
-            HotspotDetailView(hotspot: hotspot)
-        }
-        .onAppear {
-            loadMockData()
+            HotspotDetailSheet(hotspot: hotspot)
         }
     }
     
-    // MARK: - Header Section
-    private var headerSection: some View {
-        HStack {
-            Text("🗺️ Karte")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            Spacer()
-            
-            Button(action: { showingFilters = true }) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title2)
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                    .padding(8)
-                    .background(Color.white.opacity(0.1))
-                    .clipShape(Circle())
-            }
-        }
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Map Section
-    private var mapSection: some View {
-        VStack(spacing: 15) {
-            ZStack {
-                // Map
-                Map(coordinateRegion: $region)
-                    .frame(height: 400)
-                    .cornerRadius(20)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color(red: 1.0, green: 0.5, blue: 0.1), lineWidth: 2)
-                    )
-                
-                // Simulated Hotspot Pins (Overlay)
-                VStack {
-                    HStack {
-                        Spacer()
-                        HotspotPin(
-                            hotspot: hotspots.first { $0.hotspotType == .user } ?? mockUserHotspot(),
-                            action: { hotspot in selectedHotspot = hotspot }
-                        )
-                        .offset(x: -50, y: -80)
-                        Spacer()
-                    }
-                    
-                    HStack {
-                        HotspotPin(
-                            hotspot: hotspots.first { $0.hotspotType == .business } ?? mockBusinessHotspot(),
-                            action: { hotspot in selectedHotspot = hotspot }
-                        )
-                        .offset(x: -80, y: -20)
-                        
-                        Spacer()
-                        
-                        HotspotPin(
-                            hotspot: hotspots.last ?? mockUserHotspot(),
-                            action: { hotspot in selectedHotspot = hotspot }
-                        )
-                        .offset(x: 40, y: 30)
-                    }
-                    
-                    Spacer()
-                }
-                .padding()
-            }
-            
-            // Location Info
+    // MARK: - Header View
+    private var headerView: some View {
+        VStack(spacing: 16) {
+            // Top navigation
             HStack {
-                Image(systemName: "location.circle.fill")
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                
-                Text("Zweibrücken, Deutschland")
-                    .foregroundColor(.white)
+                Text("bumpify")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.orange, Color.red],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                 
                 Spacer()
                 
-                Button("Mein Standort") {
-                    // Center on user location
+                HStack(spacing: 12) {
+                    Button(action: {}) {
+                        Image(systemName: "bell")
+                            .font(.title3)
+                            .foregroundColor(.white)
+                    }
+                    
+                    Button(action: {}) {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.title3)
+                            .foregroundColor(.white)
+                    }
                 }
-                .font(.caption)
-                .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
             }
-            .padding(.horizontal)
-        }
-        .padding()
-    }
-    
-    // MARK: - Stats Section
-    private var statsSection: some View {
-        VStack(spacing: 15) {
-            Text("Hotspots in der Nähe")
-                .font(.headline)
-                .foregroundColor(.white)
             
-            HStack(spacing: 20) {
-                MapStatCard(
-                    icon: "person.2.fill",
-                    title: "User Events",
-                    count: "\(hotspots.filter { $0.hotspotType == .user }.count)",
-                    color: Color(red: 1.0, green: 0.4, blue: 0.2)
+            // Search bar with filters
+            HStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.6))
+                    
+                    TextField("Search hotspots...", text: $searchText)
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                        .placeholder(when: searchText.isEmpty) {
+                            Text("Search hotspots...")
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 25)
+                        .fill(Color.white.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 25)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
                 )
                 
-                MapStatCard(
-                    icon: "building.2.fill",
-                    title: "Business",
-                    count: "\(hotspots.filter { $0.hotspotType == .business }.count)",
-                    color: .green
-                )
+                // Filter buttons
+                Button(action: { showingFilters = true }) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.white.opacity(0.1))
+                        )
+                }
                 
-                MapStatCard(
-                    icon: "clock.fill",
-                    title: "Heute",
-                    count: "\(hotspots.filter { $0.isHappening }.count)",
-                    color: .blue
-                )
+                Button(action: {}) {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.white.opacity(0.1))
+                        )
+                }
             }
         }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(15)
-        .padding(.horizontal)
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .background(Color.black)
     }
     
-    // MARK: - Create Hotspot Button
-    private var createHotspotButton: some View {
-        Button(action: { showingCreateHotspot = true }) {
-            HStack {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title2)
-                
-                Text("Neuen Hotspot erstellen")
-                    .font(.headline)
+    // MARK: - Map View
+    private var mapView: some View {
+        ZStack {
+            // Dark style map
+            if #available(iOS 17.0, *) {
+                Map(position: $cameraPosition) {
+                    ForEach(figmaHotspots) { hotspot in
+                        Annotation(hotspot.name, coordinate: hotspot.coordinate) {
+                            FigmaHotspotPin(hotspot: hotspot) {
+                                selectedHotspot = hotspot
+                                showingHotspotDetail = true
+                            }
+                        }
+                    }
+                }
+                .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+                .mapControls {
+                    MapCompass()
+                        .mapControlVisibility(.hidden)
+                }
+            } else {
+                // Fallback for older iOS versions
+                FallbackMapView(hotspots: figmaHotspots)
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.4, blue: 0.2),
-                        Color(red: 1.0, green: 0.6, blue: 0.0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .cornerRadius(15)
         }
-        .padding(.horizontal)
+        .clipShape(Rectangle())
     }
     
-    // MARK: - Load Mock Data
-    private func loadMockData() {
-        hotspots = [
-            BumpifyHotspot(
-                name: "After Work Drinks",
-                description: "Entspannte Runde nach der Arbeit",
-                location: BumpifyLocation(latitude: 49.2041, longitude: 7.3066, city: "Zweibrücken"),
-                creatorId: UUID(),
-                hotspotType: .user,
-                startTime: Date(),
-                endTime: Date().addingTimeInterval(7200),
-                participants: [UUID(), UUID(), UUID()],
-                maxParticipants: 10,
-                category: .social
-            ),
-            BumpifyHotspot(
-                name: "Happy Hour",
-                description: "20% Rabatt auf alle Getränke",
-                location: BumpifyLocation(latitude: 49.2045, longitude: 7.3070, city: "Zweibrücken"),
-                creatorId: UUID(),
-                hotspotType: .business,
-                startTime: Date(),
-                endTime: Date().addingTimeInterval(3600),
-                participants: [UUID(), UUID()],
-                category: .food
-            ),
-            BumpifyHotspot(
-                name: "Morning Jog",
-                description: "Gemeinsam joggen gehen",
-                location: BumpifyLocation(latitude: 49.2038, longitude: 7.3062, city: "Zweibrücken"),
-                creatorId: UUID(),
-                hotspotType: .user,
-                startTime: Date().addingTimeInterval(86400),
-                endTime: Date().addingTimeInterval(90000),
-                participants: [UUID()],
-                maxParticipants: 5,
-                category: .sports
-            )
-        ]
-        
-        nearbyUsers = [
-            BumpifyUser(firstName: "Anna", lastName: "Schmidt", email: "anna@test.de", age: 25),
-            BumpifyUser(firstName: "Max", lastName: "Mueller", email: "max@test.de", age: 28),
-            BumpifyUser(firstName: "Lisa", lastName: "Weber", email: "lisa@test.de", age: 24)
-        ]
-    }
-    
-    // MARK: - Mock Helpers
-    private func mockUserHotspot() -> BumpifyHotspot {
-        return BumpifyHotspot(
-            name: "Sample Event",
-            description: "Sample Description",
-            location: BumpifyLocation(latitude: 49.2041, longitude: 7.3066),
-            creatorId: UUID(),
-            hotspotType: .user,
-            startTime: Date(),
-            endTime: Date().addingTimeInterval(3600),
-            category: .social
-        )
-    }
-    
-    private func mockBusinessHotspot() -> BumpifyHotspot {
-        return BumpifyHotspot(
-            name: "Sample Business",
-            description: "Sample Offer",
-            location: BumpifyLocation(latitude: 49.2041, longitude: 7.3066),
-            creatorId: UUID(),
-            hotspotType: .business,
-            startTime: Date(),
-            endTime: Date().addingTimeInterval(3600),
-            category: .business
+    // MARK: - Bottom Hotspots List
+    private var bottomHotspotsList: some View {
+        VStack(spacing: 0) {
+            // Handle bar
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color.white.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .padding(.top, 8)
+            
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(figmaHotspots.prefix(3)) { hotspot in
+                        FigmaHotspotCard(hotspot: hotspot) {
+                            selectedHotspot = hotspot
+                            showingHotspotDetail = true
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 100) // Tab bar space
+            }
+        }
+        .frame(maxHeight: 280)
+        .background(
+            Color.black
+                .clipShape(
+                    RoundedRectangle(cornerRadius: 0)
+                )
         )
     }
 }
 
-// MARK: - Supporting Views
-struct HotspotPin: View {
-    let hotspot: BumpifyHotspot
-    let action: (BumpifyHotspot) -> Void
+// MARK: - Figma Hotspot Model
+struct FigmaHotspot: Identifiable {
+    let id: String
+    let name: String
+    let description: String
+    let coordinate: CLLocationCoordinate2D
+    let type: HotspotPinType
+    let distance: String
+    let icon: String
+    
+    enum HotspotPinType {
+        case user, business
+        
+        var color: Color {
+            switch self {
+            case .user: return Color.orange
+            case .business: return Color.green
+            }
+        }
+        
+        var backgroundColor: Color {
+            switch self {
+            case .user: return Color.orange.opacity(0.2)
+            case .business: return Color.green.opacity(0.2)
+            }
+        }
+    }
+}
+
+// MARK: - Figma Hotspot Pin
+struct FigmaHotspotPin: View {
+    let hotspot: FigmaHotspot
+    let onTap: () -> Void
     @State private var isAnimating = false
     
     var body: some View {
-        VStack(spacing: 4) {
+        Button(action: onTap) {
             ZStack {
-                // Pulse ring
+                // Shadow/glow effect
                 Circle()
-                    .stroke(hotspot.hotspotType.color.opacity(0.3), lineWidth: 2)
+                    .fill(hotspot.type.color.opacity(0.3))
                     .frame(width: 40, height: 40)
-                    .scaleEffect(isAnimating ? 1.3 : 1.0)
-                    .opacity(isAnimating ? 0.0 : 1.0)
-                    .animation(
-                        Animation.easeOut(duration: 2.0)
-                            .repeatForever()
-                            .delay(Double.random(in: 0...1)),
-                        value: isAnimating
-                    )
+                    .blur(radius: 8)
+                    .scaleEffect(isAnimating ? 1.2 : 1.0)
                 
-                // Main pin
+                // Main pin background
                 Circle()
-                    .fill(hotspot.hotspotType.color)
-                    .frame(width: 30, height: 30)
-                    .shadow(radius: 3)
+                    .fill(hotspot.type.color)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2)
+                    )
+                    .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
                 
-                Image(systemName: hotspot.hotspotType.icon)
-                    .font(.caption)
+                // Icon
+                Image(systemName: hotspot.icon)
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
             }
-            
-            Text(hotspot.name)
-                .font(.caption2)
-                .foregroundColor(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(8)
-                .lineLimit(1)
         }
+        .scaleEffect(isAnimating ? 1.1 : 1.0)
         .onAppear {
-            isAnimating = true
-        }
-        .onTapGesture {
-            action(hotspot)
+            withAnimation(
+                Animation.easeInOut(duration: 2.0)
+                    .repeatForever(autoreverses: true)
+                    .delay(Double.random(in: 0...1))
+            ) {
+                isAnimating = true
+            }
         }
     }
 }
 
-struct MapStatCard: View {
-    let icon: String
-    let title: String
-    let count: String
-    let color: Color
+// MARK: - Figma Hotspot Card
+struct FigmaHotspotCard: View {
+    let hotspot: FigmaHotspot
+    let onTap: () -> Void
     
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-            
-            Text(count)
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
+        Button(action: onTap) {
+            HStack(spacing: 16) {
+                // Icon with background
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(hotspot.type.backgroundColor)
+                        .frame(width: 48, height: 48)
+                    
+                    Image(systemName: hotspot.icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(hotspot.type.color)
+                }
+                
+                // Content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(hotspot.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Text(hotspot.description)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // Distance
+                Text(hotspot.distance)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
         }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
-// MARK: - Map Filters View
-struct MapFiltersView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedCategories: Set<BumpifyHotspot.HotspotCategory> = []
-    @State private var selectedTypes: Set<BumpifyHotspot.HotspotType> = []
-    @State private var maxDistance: Double = 5.0
+// MARK: - Fallback Map View
+struct FallbackMapView: UIViewRepresentable {
+    let hotspots: [FigmaHotspot]
     
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.preferredConfiguration = MKStandardMapConfiguration()
+        mapView.overrideUserInterfaceStyle = .dark
+        mapView.region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 49.2041, longitude: 7.3066),
+            span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+        )
+        return mapView
+    }
+    
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Update annotations if needed
+    }
+}
+
+// MARK: - Sheets
+struct FiltersSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
-                VStack(spacing: 24) {
-                    Text("🔍 Karten-Filter")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                VStack {
+                    Text("🔧 Filter")
+                        .font(.largeTitle)
                         .foregroundColor(.white)
                     
-                    VStack(spacing: 20) {
-                        // Distance Filter
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Entfernung: \(Int(maxDistance)) km")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Slider(value: $maxDistance, in: 1...20, step: 1)
-                                .accentColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                        }
-                        
-                        // Category Filter
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Kategorien")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 10) {
-                                ForEach(BumpifyHotspot.HotspotCategory.allCases, id: \.self) { category in
-                                    CategoryFilterButton(
-                                        category: category,
-                                        isSelected: selectedCategories.contains(category)
-                                    ) {
-                                        if selectedCategories.contains(category) {
-                                            selectedCategories.remove(category)
-                                        } else {
-                                            selectedCategories.insert(category)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Type Filter
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Typ")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            HStack(spacing: 12) {
-                                ForEach(BumpifyHotspot.HotspotType.allCases, id: \.self) { type in
-                                    TypeFilterButton(
-                                        type: type,
-                                        isSelected: selectedTypes.contains(type)
-                                    ) {
-                                        if selectedTypes.contains(type) {
-                                            selectedTypes.remove(type)
-                                        } else {
-                                            selectedTypes.insert(type)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding()
+                    Text("Hier kommen die Kartenfilter!")
+                        .foregroundColor(.gray)
                     
                     Spacer()
-                    
-                    // Apply Button
-                    Button(action: {
-                        // Apply filters
-                        dismiss()
-                    }) {
-                        Text("Filter anwenden")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 1.0, green: 0.4, blue: 0.2),
-                                        Color(red: 1.0, green: 0.6, blue: 0.0)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(12)
-                    }
-                    .padding()
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Schließen") {
-                        dismiss()
-                    }
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Zurücksetzen") {
-                        selectedCategories.removeAll()
-                        selectedTypes.removeAll()
-                        maxDistance = 5.0
-                    }
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                }
-            }
-        }
-    }
-}
-
-struct CategoryFilterButton: View {
-    let category: BumpifyHotspot.HotspotCategory
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: category.icon)
-                    .font(.caption)
-                
-                Text(category.displayName)
-                    .font(.caption)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                isSelected ?
-                Color(red: 1.0, green: 0.5, blue: 0.1).opacity(0.3) :
-                Color.white.opacity(0.1)
-            )
-            .foregroundColor(isSelected ? Color(red: 1.0, green: 0.5, blue: 0.1) : .white)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color(red: 1.0, green: 0.5, blue: 0.1) : Color.clear, lineWidth: 1)
-            )
-        }
-    }
-}
-
-struct TypeFilterButton: View {
-    let type: BumpifyHotspot.HotspotType
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: type.icon)
-                    .font(.caption)
-                
-                Text(type == .user ? "Nutzer" : "Business")
-                    .font(.caption)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                isSelected ?
-                type.color.opacity(0.3) :
-                Color.white.opacity(0.1)
-            )
-            .foregroundColor(isSelected ? type.color : .white)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? type.color : Color.clear, lineWidth: 1)
-            )
-        }
-    }
-}
-
-// MARK: - Hotspot Detail View
-struct HotspotDetailView: View {
-    let hotspot: BumpifyHotspot
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
-                
-                VStack(spacing: 24) {
-                    // Header
-                    VStack(spacing: 16) {
-                        Circle()
-                            .fill(hotspot.hotspotType.color.opacity(0.2))
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                Image(systemName: hotspot.hotspotType.icon)
-                                    .font(.system(size: 40))
-                                    .foregroundColor(hotspot.hotspotType.color)
-                            )
-                        
-                        Text(hotspot.name)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                        
-                        Text(hotspot.description)
-                            .font(.body)
-                            .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                    }
-                    
-                    // Details
-                    VStack(spacing: 16) {
-                        HotspotDetailRow(
-                            icon: "clock.fill",
-                            title: "Zeit",
-                            value: timeRangeString(start: hotspot.startTime, end: hotspot.endTime)
-                        )
-                        
-                        HotspotDetailRow(
-                            icon: "person.2.fill",
-                            title: "Teilnehmer",
-                            value: "\(hotspot.participantCount)" + (hotspot.maxParticipants != nil ? "/\(hotspot.maxParticipants!)" : "")
-                        )
-                        
-                        if let city = hotspot.location.city {
-                            HotspotDetailRow(
-                                icon: "location.fill",
-                                title: "Ort",
-                                value: city
-                            )
-                        }
-                        
-                        HotspotDetailRow(
-                            icon: "tag.fill",
-                            title: "Kategorie",
-                            value: hotspot.category.displayName
-                        )
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(16)
-                    
-                    Spacer()
-                    
-                    // Action Button
-                    if hotspot.isHappening && !hotspot.isFull {
-                        Button(action: {
-                            // Join hotspot
-                            dismiss()
-                        }) {
-                            Text("Teilnehmen")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(hotspot.hotspotType.color)
-                                .cornerRadius(12)
-                        }
-                    } else if hotspot.isFull {
-                        Text("Hotspot ist voll")
-                            .font(.headline)
-                            .foregroundColor(.white.opacity(0.6))
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.gray.opacity(0.5))
-                            .cornerRadius(12)
-                    } else {
-                        Text("Hotspot ist nicht aktiv")
-                            .font(.headline)
-                            .foregroundColor(.white.opacity(0.6))
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.gray.opacity(0.5))
-                            .cornerRadius(12)
-                    }
                 }
                 .padding()
             }
+            .navigationTitle("Filter")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Schließen") {
-                        dismiss()
-                    }
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                }
-            }
         }
-    }
-    
-    private func timeRangeString(start: Date, end: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
     }
 }
 
-struct HotspotDetailRow: View {
-    let icon: String
-    let title: String
-    let value: String
+struct HotspotDetailSheet: View {
+    let hotspot: FigmaHotspot
     
     var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                .frame(width: 24)
-            
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
-            
-            Spacer()
-            
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Text("📍 \(hotspot.name)")
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
+                    
+                    Text(hotspot.description)
+                        .font(.title3)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Entfernung: \(hotspot.distance)")
+                        .font(.headline)
+                        .foregroundColor(.orange)
+                    
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationTitle("Hotspot Details")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
+}
+
+// MARK: - TextField Placeholder Extension
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .leading,
+        @ViewBuilder placeholder: () -> Content) -> some View {
+        
+        ZStack(alignment: alignment) {
+            placeholder().opacity(shouldShow ? 1 : 0)
+            self
+        }
+    }
+}
+
+#Preview {
+    MapView()
 }

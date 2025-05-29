@@ -1,288 +1,416 @@
+// HotspotDetailView.swift - Ersetze deine HotspotDetailView komplett (Finaler Fix)
+
 import SwiftUI
+import MapKit
 
 struct HotspotDetailView: View {
-    let hotspot: Hotspot
     @Environment(\.dismiss) private var dismiss
+    let hotspot: Hotspot
     @State private var hasJoined = false
+    @State private var showingParticipants = false
     
     var body: some View {
         NavigationView {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    // Header
-                    HStack {
-                        Button("Schließen") {
-                            dismiss()
-                        }
-                        .foregroundColor(.orange)
-                        
-                        Spacer()
-                        
-                        Text("Hotspot Details")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        Spacer()
-                        
-                        Button(action: {}) {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(.orange)
-                        }
-                    }
-                    .padding()
-                    
-                    ScrollView {
-                        VStack(spacing: 25) {
-                            // Header Info
-                            VStack(spacing: 15) {
-                                // Icon
-                                ZStack {
-                                    Circle()
-                                        .fill(hotspot.type.color.opacity(0.2))
-                                        .frame(width: 80, height: 80)
-                                    
-                                    Image(systemName: hotspot.type.icon)
-                                        .font(.system(size: 30))
-                                        .foregroundColor(hotspot.type.color)
-                                }
-                                
-                                // Title
-                                Text(hotspot.name)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                                
-                                // Location
-                                HStack {
-                                    Image(systemName: "location.fill")
-                                        .foregroundColor(.gray)
-                                    
-                                    Text(hotspot.location)
-                                        .foregroundColor(.gray)
-                                }
-                                
-                                // Type Badge
-                                Text(hotspot.type == .user ? "Nutzer-Event" : "Business-Angebot")
-                                    .font(.caption)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 4)
-                                    .background(hotspot.type.color.opacity(0.2))
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Header Image/Map
+                        ZStack {
+                            // Simple colored rectangle instead of map for now
+                            Rectangle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [hotspot.type.color.opacity(0.3), hotspot.type.color.opacity(0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(height: 200)
+                                .cornerRadius(20)
+                            
+                            VStack {
+                                Image(systemName: hotspot.type.icon)
+                                    .font(.system(size: 40))
                                     .foregroundColor(hotspot.type.color)
-                                    .cornerRadius(12)
-                            }
-                            
-                            // Description
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Beschreibung")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
                                 
-                                Text(hotspot.description)
-                                    .font(.body)
+                                Text("📍 \(hotspot.location)")
+                                    .font(.caption)
                                     .foregroundColor(.white)
-                                    .padding()
-                                    .background(Color.white.opacity(0.05))
-                                    .cornerRadius(12)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.black.opacity(0.6))
+                                    .cornerRadius(15)
                             }
-                            
-                            // Time Info
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Zeit")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                HStack {
-                                    Image(systemName: "clock.fill")
-                                        .foregroundColor(hotspot.type.color)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(formatTimeRange(start: hotspot.startTime, end: hotspot.endTime))
-                                            .foregroundColor(.white)
-                                        
-                                        Text(formatDate(hotspot.startTime))
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                    }
-                                    
-                                    Spacer()
-                                }
-                                .padding()
-                                .background(Color.white.opacity(0.05))
-                                .cornerRadius(12)
-                            }
-                            
-                            // Participants
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Teilnehmer")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                HStack {
-                                    Image(systemName: "person.2.fill")
-                                        .foregroundColor(hotspot.type.color)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("\(hotspot.participantCount) Teilnehmer")
-                                            .foregroundColor(.white)
-                                        
-                                        if let maxParticipants = hotspot.maxParticipants {
-                                            Text("Maximum: \(maxParticipants)")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    // Progress if max participants
-                                    if let maxParticipants = hotspot.maxParticipants {
-                                        VStack(spacing: 4) {
-                                            Text("\(hotspot.participantCount)/\(maxParticipants)")
-                                                .font(.caption)
-                                                .foregroundColor(hotspot.type.color)
-                                            
-                                            ProgressView(value: Double(hotspot.participantCount), total: Double(maxParticipants))
-                                                .tint(hotspot.type.color)
-                                                .frame(width: 60)
-                                        }
-                                    }
-                                }
-                                .padding()
-                                .background(Color.white.opacity(0.05))
-                                .cornerRadius(12)
-                            }
-                            
-                            // Similar Events (if business)
-                            if hotspot.type == .business {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text("Weitere Angebote")
-                                        .font(.headline)
+                        }
+                        
+                        // Hotspot Info
+                        VStack(alignment: .leading, spacing: 15) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(hotspot.name)
+                                        .font(.title2)
+                                        .fontWeight(.bold)
                                         .foregroundColor(.white)
                                     
-                                    VStack(spacing: 8) {
-                                        SimilarOfferRow(
-                                            title: "Frühstücks-Special",
-                                            description: "Vollständiges Frühstück für 9,99€",
-                                            time: "08:00 - 11:00"
-                                        )
+                                    Text(hotspot.location)
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                    
+                                    HStack {
+                                        Image(systemName: "clock")
+                                            .foregroundColor(hotspot.type.color)
                                         
-                                        SimilarOfferRow(
-                                            title: "Lunch Deal",
-                                            description: "Suppe + Hauptgericht für 12,50€",
-                                            time: "12:00 - 15:00"
-                                        )
+                                        Text(formatTimeRange())
+                                            .font(.caption)
+                                            .foregroundColor(hotspot.type.color)
                                     }
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(spacing: 8) {
+                                    Text("\(hotspot.participantCount)")
+                                        .font(.title)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Teilnehmer")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            
+                            Text(hotspot.description)
+                                .font(.body)
+                                .foregroundColor(.white.opacity(0.8))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        
+                        // Participants Preview
+                        VStack(alignment: .leading, spacing: 15) {
+                            HStack {
+                                Text("Teilnehmer (\(hotspot.participantCount))")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                Button("Alle anzeigen") {
+                                    showingParticipants = true
+                                }
+                                .font(.caption)
+                                .foregroundColor(hotspot.type.color)
+                            }
+                            
+                            HStack(spacing: -8) {
+                                ForEach(0..<min(hotspot.participantCount, 5), id: \.self) { index in
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [.orange, .red],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 40, height: 40)
+                                        .overlay(
+                                            Text(getMockParticipantInitial(index))
+                                                .font(.caption)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.white)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.black, lineWidth: 2)
+                                        )
+                                }
+                                
+                                if hotspot.participantCount > 5 {
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.3))
+                                        .frame(width: 40, height: 40)
+                                        .overlay(
+                                            Text("+\(hotspot.participantCount - 5)")
+                                                .font(.caption)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.white)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.black, lineWidth: 2)
+                                        )
                                 }
                             }
                         }
                         .padding()
-                    }
-                    
-                    // Action Button
-                    HStack(spacing: 15) {
-                        if hasJoined {
-                            Button("Verlassen") {
-                                hasJoined = false
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(15)
-                            
-                            Button("Chat öffnen") {
-                                // Open group chat
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.white.opacity(0.1))
-                            .foregroundColor(.white)
-                            .cornerRadius(15)
-                        } else {
-                            Button("Beitreten") {
-                                hasJoined = true
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [hotspot.type.color, hotspot.type.color.opacity(0.8)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        
+                        // Details
+                        VStack(spacing: 15) {
+                            DetailRow(
+                                icon: "calendar",
+                                title: "Datum",
+                                value: formatDate(hotspot.startTime),
+                                color: .blue
                             )
-                            .foregroundColor(.white)
-                            .cornerRadius(15)
+                            
+                            DetailRow(
+                                icon: "clock",
+                                title: "Zeit",
+                                value: formatTimeRange(),
+                                color: .green
+                            )
+                            
+                            if let maxParticipants = hotspot.maxParticipants {
+                                DetailRow(
+                                    icon: "person.2",
+                                    title: "Maximale Teilnehmer",
+                                    value: "\(maxParticipants) Personen",
+                                    color: .purple
+                                )
+                            }
+                            
+                            DetailRow(
+                                icon: "tag",
+                                title: "Typ",
+                                value: hotspot.type == .user ? "User Event" : "Business Event",
+                                color: hotspot.type.color
+                            )
                         }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        
+                        Spacer().frame(height: 100) // Space for floating button
                     }
                     .padding()
                 }
+                
+                // Floating Join Button
+                VStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        hasJoined.toggle()
+                    }) {
+                        HStack(spacing: 15) {
+                            Image(systemName: hasJoined ? "checkmark.circle.fill" : "plus.circle.fill")
+                                .font(.title2)
+                            
+                            Text(hasJoined ? "Teilgenommen" : "Teilnehmen")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: hasJoined ? [.green, .green.opacity(0.8)] : [hotspot.type.color, hotspot.type.color.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(16)
+                        .shadow(radius: 10)
+                    }
+                    .scaleEffect(hasJoined ? 0.98 : 1.0)
+                    .animation(.spring(response: 0.3), value: hasJoined)
+                    .padding()
+                    .background(Color.black.opacity(0.8))
+                }
             }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                            )
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {}) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                            )
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingParticipants) {
+            ParticipantsView(hotspot: hotspot)
         }
     }
     
-    private func formatTimeRange(start: Date, end: Date) -> String {
+    private func formatTimeRange() -> String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .none
         formatter.timeStyle = .short
-        
-        let startTime = formatter.string(from: start)
-        let endTime = formatter.string(from: end)
-        
-        return "\(startTime) - \(endTime)"
+        return "\(formatter.string(from: hotspot.startTime)) - \(formatter.string(from: hotspot.endTime))"
     }
     
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        
         return formatter.string(from: date)
+    }
+    
+    private func getMockParticipantInitial(_ index: Int) -> String {
+        let names = ["A", "M", "L", "S", "T"]
+        return names[index % names.count]
     }
 }
 
-struct SimilarOfferRow: View {
+struct DetailRow: View {
+    let icon: String
     let title: String
-    let description: String
-    let time: String
+    let value: String
+    let color: Color
     
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "tag.circle.fill")
-                .foregroundColor(.green)
+        HStack(spacing: 15) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+                .frame(width: 25)
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
+            Text(title)
+                .font(.body)
+                .foregroundColor(.white)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.body)
+                .fontWeight(.medium)
+                .foregroundColor(.white.opacity(0.8))
+        }
+    }
+}
+
+// Participants View
+struct ParticipantsView: View {
+    @Environment(\.dismiss) private var dismiss
+    let hotspot: Hotspot
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                ScrollView {
+                    LazyVStack(spacing: 15) {
+                        ForEach(0..<hotspot.participantCount, id: \.self) { index in
+                            ParticipantRow(
+                                name: getMockParticipantName(index),
+                                age: getMockParticipantAge(index),
+                                interests: getMockParticipantInterests(index)
+                            )
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Teilnehmer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Fertig") {
+                        dismiss()
+                    }
+                    .foregroundColor(.orange)
+                }
+            }
+        }
+    }
+    
+    private func getMockParticipantName(_ index: Int) -> String {
+        let names = ["Anna", "Max", "Lisa", "Stefan", "Tina", "Ben", "Clara", "David"]
+        return names[index % names.count]
+    }
+    
+    private func getMockParticipantAge(_ index: Int) -> Int {
+        return 22 + (index % 15)
+    }
+    
+    private func getMockParticipantInterests(_ index: Int) -> [String] {
+        let allInterests = [["Musik", "Reisen"], ["Sport", "Fotografie"], ["Kunst", "Café"], ["Tech", "Gaming"]]
+        return allInterests[index % allInterests.count]
+    }
+}
+
+struct ParticipantRow: View {
+    let name: String
+    let age: Int
+    let interests: [String]
+    
+    var body: some View {
+        HStack(spacing: 15) {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.orange, .red],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 50, height: 50)
+                .overlay(
+                    Text(String(name.prefix(1)))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                )
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name)
+                    .font(.headline)
                     .foregroundColor(.white)
                 
-                Text(description)
+                Text("\(age) Jahre")
                     .font(.caption)
                     .foregroundColor(.gray)
                 
-                Text(time)
-                    .font(.caption)
-                    .foregroundColor(.green)
+                HStack {
+                    ForEach(interests, id: \.self) { interest in
+                        Text(interest)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.2))
+                            .foregroundColor(.orange)
+                            .cornerRadius(10)
+                    }
+                }
             }
             
             Spacer()
             
-            Button("Mehr") {
-                // Show offer details
+            Button(action: {}) {
+                Image(systemName: "message.fill")
+                    .font(.title3)
+                    .foregroundColor(.orange)
             }
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.green.opacity(0.2))
-            .foregroundColor(.green)
-            .cornerRadius(6)
         }
         .padding()
         .background(Color.white.opacity(0.05))
-        .cornerRadius(8)
+        .cornerRadius(12)
     }
 }

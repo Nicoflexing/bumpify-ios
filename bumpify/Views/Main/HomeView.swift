@@ -1,244 +1,254 @@
+// HomeView.swift - Ersetze deine bestehende HomeView
+
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var authManager: AuthenticationManager
-    @State private var nearbyUsers: [BumpifyUser] = []
-    @State private var recentMatches: [BumpifyMatch] = []
-    @State private var activeHotspots: [BumpifyHotspot] = []
+    @State private var recentBumps: [RecentBump] = []
+    @State private var nearbyHotspots: [Hotspot] = []
+    @State private var showingProfile = false
     
     var body: some View {
         NavigationView {
             ZStack {
-                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Header
-                        headerSection
+                        // Header with Welcome Message
+                        headerView
                         
-                        // Stats Cards
-                        statsSection
+                        // Quick Stats
+                        quickStatsView
                         
-                        // Recent Activity
-                        recentActivitySection
+                        // Recent Bumps Section
+                        recentBumpsSection
                         
-                        // Nearby Users Preview
-                        nearbyUsersSection
+                        // Nearby Hotspots Section
+                        nearbyHotspotsSection
                         
-                        // Active Hotspots
-                        hotspotsSection
+                        // Quick Actions
+                        quickActionsView
                         
-                        Spacer(minLength: 100)
+                        Spacer().frame(height: 100) // Tab bar space
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                    .padding()
                 }
             }
         }
         .onAppear {
-            loadMockData()
+            loadHomeData()
         }
     }
     
-    // MARK: - Header Section
-    private var headerSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Willkommen zurück!")
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.7))
-                    
-                    if let user = authManager.currentUser {
-                        Text("Hallo \(user.firstName)! 👋")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                    }
-                }
+    // MARK: - Header View
+    private var headerView: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hallo \(authManager.currentUser?.firstName ?? "User")! 👋")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
                 
-                Spacer()
-                
-                // Profile Image
-                Button(action: {}) {
-                    Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white.opacity(0.7))
-                        )
-                }
+                Text("Bereit für neue Begegnungen?")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
             }
-        }
-    }
-    
-    // MARK: - Stats Section
-    private var statsSection: some View {
-        VStack(spacing: 16) {
-            Text("📊 Deine Statistiken")
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
             
-            HStack(spacing: 12) {
-                StatCard(
-                    icon: "person.2.fill",
-                    title: "Bumps heute",
-                    value: "12",
-                    color: Color(red: 1.0, green: 0.4, blue: 0.2)
-                )
-                
-                StatCard(
-                    icon: "heart.fill",
-                    title: "Neue Matches",
-                    value: "3",
-                    color: .pink
-                )
-                
-                StatCard(
-                    icon: "message.fill",
-                    title: "Nachrichten",
-                    value: "8",
-                    color: .blue
-                )
+            Spacer()
+            
+            Button(action: { showingProfile = true }) {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text(authManager.currentUser?.initials ?? "U")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                    )
             }
         }
     }
     
-    // MARK: - Recent Activity Section
-    private var recentActivitySection: some View {
-        VStack(spacing: 16) {
+    // MARK: - Quick Stats
+    private var quickStatsView: some View {
+        HStack(spacing: 16) {
+            StatCard(
+                icon: "person.2.fill",
+                title: "Bumps heute",
+                value: "3",
+                color: .orange
+            )
+            
+            StatCard(
+                icon: "heart.fill",
+                title: "Matches",
+                value: "12",
+                color: .red
+            )
+            
+            StatCard(
+                icon: "location.circle.fill",
+                title: "In der Nähe",
+                value: "8",
+                color: .blue
+            )
+        }
+    }
+    
+    // MARK: - Recent Bumps Section
+    private var recentBumpsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("🔥 Letzte Aktivität")
+                Text("📍 Letzte Begegnungen")
                     .font(.headline)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
                 
                 Spacer()
                 
                 Button("Alle anzeigen") {
-                    // Navigate to full activity
+                    // Navigate to all bumps
                 }
                 .font(.caption)
-                .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+                .foregroundColor(.orange)
             }
             
-            VStack(spacing: 12) {
-                ForEach(recentMatches.prefix(3)) { match in
-                    RecentActivityCard(match: match)
-                }
-                
-                if recentMatches.isEmpty {
-                    EmptyStateCard(
-                        icon: "clock.fill",
-                        title: "Keine Aktivität",
-                        description: "Starte den Bump-Modus, um Aktivitäten zu sehen!"
-                    )
-                }
-            }
-        }
-    }
-    
-    // MARK: - Nearby Users Section
-    private var nearbyUsersSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("👥 In der Nähe")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Text("\(nearbyUsers.count) Personen")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-            }
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(nearbyUsers.prefix(5)) { user in
-                        NearbyUserCard(user: user)
+            if recentBumps.isEmpty {
+                EmptyStateView(
+                    icon: "location.slash",
+                    title: "Keine Begegnungen",
+                    subtitle: "Starte einen Bump, um neue Leute zu treffen!"
+                )
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(recentBumps) { bump in
+                        RecentBumpCard(bump: bump)
                     }
                 }
-                .padding(.horizontal, 4)
-            }
-            
-            if nearbyUsers.isEmpty {
-                EmptyStateCard(
-                    icon: "person.2.slash.fill",
-                    title: "Niemand in der Nähe",
-                    description: "Aktiviere den Bump-Modus, um andere Nutzer zu finden!"
-                )
             }
         }
     }
     
-    // MARK: - Hotspots Section
-    private var hotspotsSection: some View {
-        VStack(spacing: 16) {
+    // MARK: - Nearby Hotspots Section
+    private var nearbyHotspotsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("📍 Aktive Hotspots")
+                Text("🔥 Hotspots in der Nähe")
                     .font(.headline)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
                 
                 Spacer()
                 
-                Button("Alle anzeigen") {
+                Button("Karte öffnen") {
                     // Navigate to map
                 }
                 .font(.caption)
-                .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+                .foregroundColor(.orange)
             }
             
-            VStack(spacing: 12) {
-                ForEach(activeHotspots.prefix(3)) { hotspot in
-                    HotspotCard(hotspot: hotspot)
+            if nearbyHotspots.isEmpty {
+                EmptyStateView(
+                    icon: "map",
+                    title: "Keine Hotspots",
+                    subtitle: "Erstelle den ersten Hotspot in deiner Nähe!"
+                )
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(nearbyHotspots) { hotspot in
+                            HotspotCard(hotspot: hotspot)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.horizontal, -16)
+            }
+        }
+    }
+    
+    // MARK: - Quick Actions
+    private var quickActionsView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("⚡ Schnellaktionen")
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            HStack(spacing: 12) {
+                HomeQuickActionButton(
+                    icon: "location.circle.fill",
+                    title: "Bump starten",
+                    color: .orange
+                ) {
+                    // Navigate to bump view
                 }
                 
-                if activeHotspots.isEmpty {
-                    EmptyStateCard(
-                        icon: "mappin.slash",
-                        title: "Keine Hotspots",
-                        description: "Erstelle einen eigenen Hotspot oder warte auf Events in deiner Nähe!"
-                    )
+                HomeQuickActionButton(
+                    icon: "plus.circle.fill",
+                    title: "Hotspot erstellen",
+                    color: .green
+                ) {
+                    // Navigate to create hotspot
                 }
             }
         }
     }
     
-    // MARK: - Load Mock Data
-    private func loadMockData() {
-        // Mock nearby users
-        nearbyUsers = [
-            BumpifyUser(firstName: "Anna", lastName: "Schmidt", email: "anna@test.de", age: 25, interests: ["Musik", "Reisen"]),
-            BumpifyUser(firstName: "Max", lastName: "Mueller", email: "max@test.de", age: 28, interests: ["Sport", "Kaffee"]),
-            BumpifyUser(firstName: "Lisa", lastName: "Weber", email: "lisa@test.de", age: 24, interests: ["Kunst", "Fotografie"])
+    // MARK: - Load Data
+    private func loadHomeData() {
+        // Mock data for recent bumps
+        recentBumps = [
+            RecentBump(
+                id: "1",
+                userName: "Anna Schmidt",
+                userInitials: "AS",
+                location: "Café Central",
+                timestamp: Date().addingTimeInterval(-3600),
+                isMatched: true
+            ),
+            RecentBump(
+                id: "2",
+                userName: "Max Weber",
+                userInitials: "MW",
+                location: "Stadtpark",
+                timestamp: Date().addingTimeInterval(-7200),
+                isMatched: false
+            )
         ]
         
-        // Mock recent matches
-        recentMatches = [
-            BumpifyMatch(user: nearbyUsers[0], sharedInterests: ["Musik"]),
-            BumpifyMatch(user: nearbyUsers[1], sharedInterests: ["Sport", "Kaffee"])
-        ]
-        
-        // Mock hotspots
-        activeHotspots = [
-            BumpifyHotspot(
+        // Mock data for nearby hotspots
+        nearbyHotspots = [
+            Hotspot(
                 name: "After Work Drinks",
                 description: "Entspannte Runde nach der Arbeit",
-                location: BumpifyLocation(latitude: 49.2041, longitude: 7.3066),
-                creatorId: UUID(),
-                hotspotType: .user,
+                location: "Murphy's Pub",
+                coordinate: BumpCoordinate(latitude: 49.2041, longitude: 7.3066),
+                type: .user,
+                createdBy: "user1",
+                startTime: Date().addingTimeInterval(3600),
+                endTime: Date().addingTimeInterval(7200),
+                participantIds: ["user1", "user2", "user3"],
+                maxParticipants: 8
+            ),
+            Hotspot(
+                name: "Happy Hour",
+                description: "20% auf alle Getränke",
+                location: "Café Central",
+                coordinate: BumpCoordinate(latitude: 49.2035, longitude: 7.3070),
+                type: .business,
+                createdBy: "business1",
                 startTime: Date(),
-                endTime: Date().addingTimeInterval(3600),
-                category: .social
+                endTime: Date().addingTimeInterval(7200)
             )
         ]
     }
 }
 
 // MARK: - Supporting Views
+
 struct StatCard: View {
     let icon: String
     let title: String
@@ -258,162 +268,193 @@ struct StatCard: View {
             
             Text(title)
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding()
         .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
+        .cornerRadius(12)
     }
 }
 
-struct RecentActivityCard: View {
-    let match: BumpifyMatch
+struct RecentBump: Identifiable {
+    let id: String
+    let userName: String
+    let userInitials: String
+    let location: String
+    let timestamp: Date
+    let isMatched: Bool
+}
+
+struct RecentBumpCard: View {
+    let bump: RecentBump
     
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(Color.pink.opacity(0.2))
+                .fill(bump.isMatched ? Color.green : Color.gray)
                 .frame(width: 40, height: 40)
                 .overlay(
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(.pink)
-                )
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Neues Match mit \(match.user.firstName)")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                
-                if !match.sharedInterests.isEmpty {
-                    Text("Gemeinsame Interessen: \(match.sharedInterests.joined(separator: ", "))")
+                    Text(bump.userInitials)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
-                }
-            }
-            
-            Spacer()
-            
-            Text(timeAgoString(from: match.matchedAt))
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
-    }
-    
-    private func timeAgoString(from date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
-}
-
-struct NearbyUserCard: View {
-    let user: BumpifyUser
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Circle()
-                .fill(Color.white.opacity(0.1))
-                .frame(width: 60, height: 60)
-                .overlay(
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 30))
-                        .foregroundColor(.white.opacity(0.7))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
                 )
             
-            Text(user.firstName)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
-            
-            if let age = user.age {
-                Text("\(age)")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.6))
-            }
-        }
-        .frame(width: 80)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
-    }
-}
-
-struct HotspotCard: View {
-    let hotspot: BumpifyHotspot
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(hotspot.hotspotType.color.opacity(0.2))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: hotspot.hotspotType.icon)
-                        .font(.system(size: 18))
-                        .foregroundColor(hotspot.hotspotType.color)
-                )
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(hotspot.name)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(bump.userName)
                     .font(.subheadline)
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .foregroundColor(.white)
                 
-                Text(hotspot.description)
+                Text(bump.location)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-                    .lineLimit(1)
+                    .foregroundColor(.gray)
             }
             
             Spacer()
             
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(hotspot.participantCount)")
+                Text(timeAgo(from: bump.timestamp))
                     .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(hotspot.hotspotType.color)
+                    .foregroundColor(.gray)
                 
-                Text("Teilnehmer")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.5))
+                if bump.isMatched {
+                    Text("Match! 💖")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                } else {
+                    Text("Warten...")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
             }
         }
         .padding()
         .background(Color.white.opacity(0.05))
         .cornerRadius(12)
     }
+    
+    private func timeAgo(from date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        
+        if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes)m"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours)h"
+        } else {
+            let days = Int(interval / 86400)
+            return "\(days)d"
+        }
+    }
 }
 
-struct EmptyStateCard: View {
+struct HotspotCard: View {
+    let hotspot: Hotspot
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: hotspot.type.icon)
+                    .font(.title3)
+                    .foregroundColor(hotspot.type.color)
+                
+                Spacer()
+                
+                Text("\(hotspot.participantCount)/\(hotspot.maxParticipants ?? 99)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            
+            Text(hotspot.name)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .lineLimit(1)
+            
+            Text(hotspot.location)
+                .font(.caption)
+                .foregroundColor(.gray)
+                .lineLimit(1)
+            
+            Spacer()
+            
+            Button("Beitreten") {
+                // Join hotspot action
+            }
+            .font(.caption)
+            .fontWeight(.semibold)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(hotspot.type.color)
+            .cornerRadius(8)
+        }
+        .frame(width: 140, height: 120)
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+}
+
+struct EmptyStateView: View {
     let icon: String
     let title: String
-    let description: String
+    let subtitle: String
     
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 40))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.gray)
             
             Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.white.opacity(0.6))
+                .font(.headline)
+                .foregroundColor(.white)
             
-            Text(description)
+            Text(subtitle)
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.vertical, 32)
         .background(Color.white.opacity(0.05))
         .cornerRadius(12)
     }
+}
+
+struct HomeQuickActionButton: View {
+    let icon: String
+    let title: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+                
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                
+                Spacer()
+            }
+            .padding()
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(12)
+        }
+    }
+}
+
+#Preview {
+    HomeView()
+        .environmentObject(AuthenticationManager())
 }

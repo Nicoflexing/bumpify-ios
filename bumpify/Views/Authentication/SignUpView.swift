@@ -1,284 +1,392 @@
+// SignUpView.swift - Ersetze deine SignUpView komplett
+
 import SwiftUI
 
 struct SignUpView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var authManager: AuthenticationManager
+    @State private var firstName = ""
+    @State private var lastName = ""
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
+    @State private var agreedToTerms = false
+    @State private var isLoading = false
     
     var body: some View {
         ZStack {
-            // Dark Background
-            Color(red: 0.1, green: 0.11, blue: 0.15)
-                .ignoresSafeArea()
+            // Background Gradient
+            LinearGradient(
+                gradient: Gradient(stops: [
+                    .init(color: Color(red: 0.05, green: 0.05, blue: 0.1), location: 0.0),
+                    .init(color: Color(red: 0.1, green: 0.1, blue: 0.15), location: 0.5),
+                    .init(color: Color(red: 0.05, green: 0.05, blue: 0.1), location: 1.0)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                Spacer().frame(height: 60)
-                
-                // Logo Section
-                VStack(spacing: 16) {
-                    Text("bumpify")
-                        .font(.system(size: 42, weight: .bold))
-                        .foregroundColor(Color(red: 1.0, green: 0.4, blue: 0.2))
-                    
-                    Text("Verbinde dich mit Menschen um dich herum")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundColor(Color.white.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                
-                Spacer().frame(height: 40)
-                
-                // Tab Buttons
-                HStack(spacing: 0) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Text("Anmelden")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Color.white.opacity(0.6))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.clear)
-                    }
-                    
-                    Button(action: {}) {
-                        Text("Registrieren")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 25)
-                                    .fill(Color(red: 1.0, green: 0.4, blue: 0.2))
-                            )
-                    }
-                }
-                .padding(.horizontal, 32)
-                
-                Spacer().frame(height: 40)
-                
-                // Register Form
-                VStack(spacing: 24) {
-                    // Email Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("E-mail")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                        
-                        HStack(spacing: 12) {
-                            Image(systemName: "envelope")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color.white.opacity(0.6))
-                                .frame(width: 20)
-                            
-                            TextField("ex. yourname@gmail.com", text: $email)
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
-                                .autocapitalization(.none)
-                                .keyboardType(.emailAddress)
-                                .disableAutocorrection(true)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                .background(Color.clear)
-                        )
-                    }
-                    
-                    // Password Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Password")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                        
-                        HStack(spacing: 12) {
-                            Image(systemName: "lock")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color.white.opacity(0.6))
-                                .frame(width: 20)
-                            
-                            SecureField("Type your password here", text: $password)
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
-                            
-                            Button(action: {}) {
-                                Image(systemName: "eye")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(Color.white.opacity(0.6))
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                .background(Color.clear)
-                        )
-                    }
-                    
-                    // Confirm Password Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Password bestätigen")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                        
-                        HStack(spacing: 12) {
-                            Image(systemName: "lock")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color.white.opacity(0.6))
-                                .frame(width: 20)
-                            
-                            SecureField("Type your password here", text: $confirmPassword)
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
-                            
-                            Button(action: {}) {
-                                Image(systemName: "eye")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(Color.white.opacity(0.6))
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                .background(Color.clear)
-                        )
-                    }
-                    
-                    Spacer().frame(height: 20)
-                    
-                    // Continue Button
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            appState.isLoggedIn = true
-                        }
-                    }) {
-                        HStack(spacing: 8) {
-                            Text("Continue")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.white)
-                            
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(Color(red: 1.0, green: 0.4, blue: 0.2))
-                        .cornerRadius(12)
-                    }
-                    .padding(.horizontal, 32)
-                    
-                    // Divider
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Header
                     HStack {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(height: 1)
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.white)
+                                .padding(12)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.08))
+                                )
+                        }
                         
-                        Text("oder")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.white.opacity(0.6))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 20)
+                    
+                    Spacer().frame(height: 40)
+                    
+                    // Logo Section
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 1.0, green: 0.4, blue: 0.2),
+                                            Color(red: 1.0, green: 0.6, blue: 0.0)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 60, height: 60)
+                                .shadow(color: Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.3), radius: 15, x: 0, y: 8)
+                            
+                            Image(systemName: "location.circle.fill")
+                                .font(.system(size: 28, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        
+                        VStack(spacing: 8) {
+                            Text("Konto erstellen")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                            
+                            Text("Tritt der bumpify Community bei")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.6))
+                        }
+                    }
+                    
+                    Spacer().frame(height: 40)
+                    
+                    // Sign Up Form
+                    VStack(spacing: 20) {
+                        // Name Fields
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Vorname")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.8))
+                                
+                                TextField("Max", text: $firstName)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.white.opacity(0.08))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                            )
+                                    )
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Nachname")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.8))
+                                
+                                TextField("Mustermann", text: $lastName)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.white.opacity(0.08))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                            )
+                                    )
+                            }
+                        }
+                        
+                        // Email Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("E-Mail")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.8))
+                            
+                            HStack(spacing: 12) {
+                                Image(systemName: "envelope")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.5))
+                                    .frame(width: 20)
+                                
+                                TextField("deine@email.com", text: $email)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .autocapitalization(.none)
+                                    .keyboardType(.emailAddress)
+                            }
                             .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    )
+                            )
+                        }
                         
-                        Rectangle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(height: 1)
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 20)
-                    
-                    // Social Login Buttons
-                    VStack(spacing: 12) {
-                        // Google Button
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                appState.isLoggedIn = true
-                            }
-                        }) {
+                        // Password Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Passwort")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.8))
+                            
                             HStack(spacing: 12) {
-                                Image(systemName: "globe")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
+                                Image(systemName: "lock")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.5))
+                                    .frame(width: 20)
                                 
-                                Text("Sign up with Google")
+                                SecureField("Mindestens 8 Zeichen", text: $password)
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(.white)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        
+                        // Confirm Password Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Passwort bestätigen")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.8))
+                            
+                            HStack(spacing: 12) {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.5))
+                                    .frame(width: 20)
+                                
+                                SecureField("Passwort wiederholen", text: $confirmPassword)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(password != confirmPassword && !confirmPassword.isEmpty ? Color.red.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        
+                        // Terms Agreement
+                        Button(action: { agreedToTerms.toggle() }) {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(agreedToTerms ? Color(red: 1.0, green: 0.5, blue: 0.1) : Color.white.opacity(0.5))
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Ich akzeptiere die ")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(Color.white.opacity(0.7)) +
+                                    Text("Nutzungsbedingungen")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1)) +
+                                    Text(" und die ")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(Color.white.opacity(0.7)) +
+                                    Text("Datenschutzerklärung")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+                                }
+                                
+                                Spacer()
+                            }
+                        }
+                        .padding(.top, 8)
+                        
+                        Spacer().frame(height: 8)
+                        
+                        // Sign Up Button
+                        Button(action: {
+                            isLoading = true
+                            authManager.signUp(
+                                firstName: firstName,
+                                lastName: lastName,
+                                email: email,
+                                password: password
+                            )
+                            isLoading = false
+                        }) {
+                            HStack(spacing: 8) {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Text("Konto erstellen")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    .background(Color.clear)
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 1.0, green: 0.4, blue: 0.2),
+                                        Color(red: 1.0, green: 0.6, blue: 0.0)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.3), radius: 12, x: 0, y: 6)
                         }
-                        .padding(.horizontal, 32)
+                        .disabled(!isFormValid || isLoading)
+                        .opacity((!isFormValid || isLoading) ? 0.6 : 1.0)
                         
-                        // Apple Button
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                appState.isLoggedIn = true
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "apple.logo")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
-                                
-                                Text("Sign up with Apple")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    .background(Color.clear)
-                            )
+                        // Divider with "oder"
+                        HStack {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(height: 1)
+                            
+                            Text("oder")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.5))
+                                .padding(.horizontal, 16)
+                            
+                            Rectangle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(height: 1)
                         }
-                        .padding(.horizontal, 32)
-                    }
-                    
-                    Spacer().frame(height: 20)
-                    
-                    // Terms Text
-                    VStack(spacing: 4) {
-                        Text("Indem du fortfährst, stimmst du unseren")
-                            .font(.system(size: 12))
-                            .foregroundColor(Color.white.opacity(0.6))
                         
+                        // Social Sign Up Buttons
+                        VStack(spacing: 12) {
+                            // Apple Sign Up
+                            Button(action: {
+                                authManager.signUpWithApple()
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "apple.logo")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Mit Apple registrieren")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.white.opacity(0.08))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                        )
+                                )
+                            }
+                            
+                            // Google Sign Up
+                            Button(action: {
+                                authManager.signUpWithGoogle()
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "globe")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Mit Google registrieren")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.white.opacity(0.08))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                        )
+                                )
+                            }
+                        }
+                        
+                        Spacer().frame(height: 24)
+                        
+                        // Login Link
                         HStack(spacing: 4) {
-                            Text("Nutzungsbedingungen")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color(red: 1.0, green: 0.4, blue: 0.2))
+                            Text("Bereits ein Konto?")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.7))
                             
-                            Text("und")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color.white.opacity(0.6))
-                            
-                            Text("Datenschutzrichtlinien")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color(red: 1.0, green: 0.4, blue: 0.2))
-                            
-                            Text("zu.")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color.white.opacity(0.6))
+                            Button(action: { dismiss() }) {
+                                Text("Anmelden")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+                            }
                         }
                     }
-                    .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
+                    
+                    Spacer().frame(height: 40)
                 }
-                
-                Spacer()
             }
         }
+    }
+    
+    private var isFormValid: Bool {
+        !firstName.isEmpty &&
+        !lastName.isEmpty &&
+        !email.isEmpty &&
+        !password.isEmpty &&
+        password == confirmPassword &&
+        password.count >= 8 &&
+        agreedToTerms
     }
 }

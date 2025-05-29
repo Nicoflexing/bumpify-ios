@@ -1,274 +1,354 @@
+// BumpView.swift - Fehlerfreie Version ohne Typkonflikte
+
 import SwiftUI
 
 struct BumpView: View {
     @EnvironmentObject var authManager: AuthenticationManager
-    @State private var isBumpActive = false
-    @State private var pulseScale: CGFloat = 1.0
+    @State private var isBumping = false
     @State private var activeTime = 0
     @State private var timer: Timer?
-    @State private var nearbyUsers: [BumpifyUser] = []
-    @State private var recentBumps: [BumpEvent] = []
-    @State private var showingFilters = false
+    @State private var pulseScale: Double = 1.0
+    @State private var rotationAngle: Double = 0
+    @State private var nearbyCount = 0
+    @State private var showSettings = false
+    
+    // Animation states - alle als Double für Konsistenz
+    @State private var waveScale: Double = 1.0
+    @State private var glowOpacity: Double = 0.5
+    @State private var ringScale1: Double = 1.0
+    @State private var ringScale2: Double = 1.0
+    @State private var ringScale3: Double = 1.0
+    @State private var ringScale4: Double = 1.0
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
+        ZStack {
+            // Background
+            backgroundGradient
+            
+            VStack(spacing: 0) {
+                // Header
+                headerSection
+                    .padding(.top, 20)
                 
-                VStack(spacing: 30) {
-                    // Header
-                    headerSection
-                    
-                    // Status Cards
-                    statusCardsSection
-                    
-                    Spacer()
-                    
-                    // Main Bump Visualization
-                    bumpVisualizationSection
-                    
-                    Spacer()
-                    
-                    // Main Action Button
-                    mainActionButton
-                    
-                    // Quick Actions
-                    quickActionsSection
-                }
+                Spacer()
+                
+                // Main visualization
+                mainVisualization
+                
+                Spacer()
+                
+                // Status cards
+                statusSection
+                    .padding(.horizontal, 20)
+                
+                // Controls
+                controlSection
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 100)
             }
         }
-        .sheet(isPresented: $showingFilters) {
-            BumpFiltersView()
+        .ignoresSafeArea(edges: .top)
+        .onAppear {
+            startAllAnimations()
+            startNearbyTimer()
         }
         .onDisappear {
-            stopTimer()
+            stopAllTimers()
         }
-        .onAppear {
-            loadMockData()
+        .sheet(isPresented: $showSettings) {
+            SettingsSheet()
         }
     }
     
-    // MARK: - Header Section
-    private var headerSection: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("⚡ Bump Modus")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Text(isBumpActive ? "Du bist sichtbar" : "Du bist unsichtbar")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            
-            Spacer()
-            
-            Button(action: { showingFilters = true }) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title2)
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                    .padding(8)
-                    .background(Color.white.opacity(0.1))
-                    .clipShape(Circle())
-            }
-        }
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Status Cards Section
-    private var statusCardsSection: some View {
-        HStack(spacing: 15) {
-            BumpStatusCard(
-                icon: "circle.fill",
-                title: "Status",
-                value: isBumpActive ? "Aktiv" : "Inaktiv",
-                color: isBumpActive ? .green : .gray
-            )
-            
-            BumpStatusCard(
-                icon: "person.2.fill",
-                title: "In der Nähe",
-                value: "\(nearbyUsers.count)",
-                color: Color(red: 1.0, green: 0.4, blue: 0.2)
-            )
-            
-            BumpStatusCard(
-                icon: "clock.fill",
-                title: "Aktive Zeit",
-                value: formatTime(activeTime),
-                color: .blue
-            )
-        }
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Bump Visualization Section
-    private var bumpVisualizationSection: some View {
+    // MARK: - Background
+    private var backgroundGradient: some View {
         ZStack {
-            // Outer rings
-            ForEach(0..<3, id: \.self) { ring in
-                Circle()
-                    .stroke(
-                        isBumpActive ?
-                        Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.3) :
-                        Color.gray.opacity(0.2),
-                        lineWidth: 2
-                    )
-                    .frame(width: 200 + CGFloat(ring * 40))
-                    .scaleEffect(isBumpActive ? 1.0 + CGFloat(ring) * 0.1 : 1.0)
-                    .opacity(isBumpActive ? 1.0 - Double(ring) * 0.3 : 0.5)
-                    .animation(
-                        isBumpActive ?
-                        Animation.easeInOut(duration: 2.0)
-                            .repeatForever()
-                            .delay(Double(ring) * 0.3) :
-                        .default,
-                        value: isBumpActive
-                    )
+            // Base gradient
+            LinearGradient(
+                colors: [Color.black, Color(red: 0.05, green: 0.05, blue: 0.15), Color.black],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            // Glow effect when active
+            if isBumping {
+                RadialGradient(
+                    colors: [Color.orange.opacity(0.1), Color.red.opacity(0.05), Color.clear],
+                    center: .center,
+                    startRadius: 100,
+                    endRadius: 400
+                )
+                .opacity(glowOpacity)
             }
             
-            // Detected users (dots around the center)
-            if isBumpActive && !nearbyUsers.isEmpty {
-                ForEach(Array(nearbyUsers.enumerated()), id: \.offset) { index, user in
-                    DetectedUserDot(user: user, index: index)
+            // Floating particles
+            particleEffects
+        }
+    }
+    
+    // MARK: - Particle Effects
+    private var particleEffects: some View {
+        ForEach(0..<8, id: \.self) { i in
+            Circle()
+                .fill(Color.orange.opacity(0.2))
+                .frame(width: 3, height: 3)
+                .offset(
+                    x: Double.random(in: -150...150),
+                    y: Double.random(in: -300...300) + (isBumping ? -10 : 10)
+                )
+                .animation(
+                    Animation.easeInOut(duration: Double.random(in: 2...4))
+                        .repeatForever(autoreverses: true)
+                        .delay(Double(i) * 0.2),
+                    value: isBumping
+                )
+        }
+    }
+    
+    // MARK: - Header
+    private var headerSection: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("⚡ Bump Modus")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.orange, Color.red],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                    
+                    Text(isBumping ? "Aktiv • \(formatTime(activeTime))" : "Bereit zum Starten")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                Spacer()
+                
+                Button(action: { showSettings = true }) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - Main Visualization
+    private var mainVisualization: some View {
+        ZStack {
+            // Outer rings - ohne komplexe Animationen
+            Circle()
+                .stroke(Color.orange.opacity(0.4), lineWidth: 2)
+                .frame(width: 260)
+                .scaleEffect(ringScale1)
             
-            // Center orb
+            Circle()
+                .stroke(Color.orange.opacity(0.3), lineWidth: 2)
+                .frame(width: 320)
+                .scaleEffect(ringScale2)
+            
+            Circle()
+                .stroke(Color.orange.opacity(0.2), lineWidth: 2)
+                .frame(width: 380)
+                .scaleEffect(ringScale3)
+            
+            Circle()
+                .stroke(Color.orange.opacity(0.1), lineWidth: 2)
+                .frame(width: 440)
+                .scaleEffect(ringScale4)
+            
+            // Main orb
             ZStack {
+                // Glow
                 Circle()
                     .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: isBumpActive ? [
-                                Color(red: 1.0, green: 0.4, blue: 0.2),
-                                Color(red: 1.0, green: 0.6, blue: 0.0)
-                            ] : [.gray, .gray.opacity(0.5)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                        RadialGradient(
+                            colors: [Color.orange.opacity(0.4), Color.clear],
+                            center: .center,
+                            startRadius: 50,
+                            endRadius: 100
                         )
                     )
-                    .frame(width: 100, height: 100)
+                    .frame(width: 160, height: 160)
+                    .blur(radius: 15)
                     .scaleEffect(pulseScale)
-                    .shadow(
-                        color: isBumpActive ?
-                        Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.5) :
-                        .clear,
-                        radius: 20
-                    )
                 
-                Image(systemName: "location.circle.fill")
-                    .font(.system(size: 40))
-                    .foregroundColor(.white)
+                // Main circle
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.orange.opacity(0.3), Color.red.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                    )
+                    .frame(width: 120, height: 120)
+                
+                // Content
+                VStack(spacing: 6) {
+                    Image(systemName: isBumping ? "wifi.circle" : "location.circle")
+                        .font(.system(size: 32, weight: .medium))
+                        .foregroundColor(.white)
+                        .rotationEffect(.degrees(rotationAngle))
+                    
+                    if isBumping && nearbyCount > 0 {
+                        Text("\(nearbyCount)")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Text("in der Nähe")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
             }
-            .onAppear {
-                startPulseAnimation()
-            }
-            .onChange(of: isBumpActive) { oldValue, newValue in
-                if newValue {
-                    startPulseAnimation()
-                    startTimer()
-                } else {
-                    stopPulseAnimation()
-                    stopTimer()
+            
+            // Detection indicators
+            if isBumping {
+                ForEach(0..<nearbyCount, id: \.self) { i in
+                    detectionIndicator(index: i)
                 }
             }
         }
-        .frame(height: 300)
+        .frame(height: 400)
     }
     
-    // MARK: - Main Action Button
-    private var mainActionButton: some View {
-        Button(action: {
-            withAnimation(.spring()) {
-                isBumpActive.toggle()
-            }
-        }) {
-            HStack(spacing: 15) {
-                Image(systemName: isBumpActive ? "pause.fill" : "play.fill")
-                    .font(.title2)
-                
-                Text(isBumpActive ? "Bump Stoppen" : "Bump Starten")
-                    .font(.headline)
-                    .fontWeight(.bold)
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(
-                LinearGradient(
-                    gradient: Gradient(colors: isBumpActive ? [
-                        .red,
-                        .red.opacity(0.8)
-                    ] : [
-                        Color(red: 1.0, green: 0.4, blue: 0.2),
-                        Color(red: 1.0, green: 0.6, blue: 0.0)
-                    ]),
-                    startPoint: .leading,
-                    endPoint: .trailing
+    // MARK: - Detection Indicator
+    private func detectionIndicator(index: Int) -> some View {
+        let angle = Double(index) * (360.0 / Double(max(nearbyCount, 1)))
+        let radius = 140.0
+        
+        return Circle()
+            .fill(Color.green)
+            .frame(width: 10, height: 10)
+            .overlay(Circle().stroke(Color.white, lineWidth: 1))
+            .offset(
+                x: cos(angle * .pi / 180) * radius,
+                y: sin(angle * .pi / 180) * radius
+            )
+            .scaleEffect(waveScale)
+    }
+    
+    // MARK: - Status Section
+    private var statusSection: some View {
+        HStack(spacing: 16) {
+            SimpleStatusCard(icon: "heart.fill", title: "Matches", value: "12", color: .pink)
+            SimpleStatusCard(icon: "location.fill", title: "Reichweite", value: "50m", color: .blue)
+            SimpleStatusCard(icon: "bolt.fill", title: "Energie", value: "85%", color: .green)
+        }
+    }
+    
+    // MARK: - Control Section
+    private var controlSection: some View {
+        VStack(spacing: 16) {
+            // Main button
+            Button(action: toggleBump) {
+                HStack(spacing: 16) {
+                    Image(systemName: isBumping ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.title2)
+                    
+                    Text(isBumping ? "Bump Stoppen" : "Bump Starten")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: isBumping ? [Color.red, Color.red.opacity(0.8)] : [Color.orange, Color.red],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                 )
-            )
-            .cornerRadius(16)
-            .shadow(
-                color: isBumpActive ?
-                .red.opacity(0.3) :
-                Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.3),
-                radius: 10
-            )
-        }
-        .scaleEffect(isBumpActive ? 0.98 : 1.0)
-        .animation(.spring(response: 0.3), value: isBumpActive)
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Quick Actions Section
-    private var quickActionsSection: some View {
-        HStack(spacing: 20) {
-            QuickActionButton(
-                icon: "slider.horizontal.3",
-                title: "Filter"
-            ) {
-                showingFilters = true
+                .shadow(color: Color.orange.opacity(0.3), radius: 15, x: 0, y: 8)
             }
             
-            QuickActionButton(
-                icon: "target",
-                title: "Reichweite"
-            ) {
-                // Adjust range
+            // Quick actions
+            HStack(spacing: 12) {
+                SimpleActionButton(icon: "target", title: "Boost") {}
+                SimpleActionButton(icon: "person.2.fill", title: "Filter") {}
+                SimpleActionButton(icon: "map.fill", title: "Karte") {}
             }
-            
-            QuickActionButton(
-                icon: "bolt.fill",
-                title: "Boost"
-            ) {
-                // Super Bump
-            }
-        }
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Animation Methods
-    private func startPulseAnimation() {
-        withAnimation(
-            Animation.easeInOut(duration: 1.5)
-                .repeatForever(autoreverses: true)
-        ) {
-            pulseScale = isBumpActive ? 1.1 : 1.0
         }
     }
     
-    private func stopPulseAnimation() {
-        withAnimation(.default) {
-            pulseScale = 1.0
+    // MARK: - Actions
+    private func toggleBump() {
+        isBumping.toggle()
+        
+        if isBumping {
+            startTimer()
+        } else {
+            stopTimer()
+            activeTime = 0
+            nearbyCount = 0
+        }
+    }
+    
+    private func startAllAnimations() {
+        // Pulse animation
+        withAnimation(Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+            pulseScale = 1.1
+            glowOpacity = 0.8
+        }
+        
+        // Rotation
+        withAnimation(Animation.linear(duration: 8.0).repeatForever(autoreverses: false)) {
+            rotationAngle = 360
+        }
+        
+        // Ring animations
+        withAnimation(Animation.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+            ringScale1 = 1.05
+        }
+        withAnimation(Animation.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
+            ringScale2 = 1.08
+        }
+        withAnimation(Animation.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+            ringScale3 = 1.12
+        }
+        withAnimation(Animation.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
+            ringScale4 = 1.15
+        }
+        
+        // Wave animation
+        withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            waveScale = 1.3
         }
     }
     
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if isBumpActive {
-                activeTime += 1
-            }
+            activeTime += 1
         }
     }
     
@@ -277,24 +357,28 @@ struct BumpView: View {
         timer = nil
     }
     
-    private func formatTime(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let remainingSeconds = seconds % 60
-        return String(format: "%d:%02d", minutes, remainingSeconds)
+    private func startNearbyTimer() {
+        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            if isBumping {
+                nearbyCount = Int.random(in: 1...4)
+            }
+        }
     }
     
-    // MARK: - Load Mock Data
-    private func loadMockData() {
-        nearbyUsers = [
-            BumpifyUser(firstName: "Anna", lastName: "S.", email: "anna@test.de", age: 25, interests: ["Musik"]),
-            BumpifyUser(firstName: "Max", lastName: "M.", email: "max@test.de", age: 28, interests: ["Sport"]),
-            BumpifyUser(firstName: "Lisa", lastName: "W.", email: "lisa@test.de", age: 24, interests: ["Kunst"])
-        ]
+    private func stopAllTimers() {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func formatTime(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", minutes, secs)
     }
 }
 
-// MARK: - Supporting Views
-struct BumpStatusCard: View {
+// MARK: - Simple Status Card
+struct SimpleStatusCard: View {
     let icon: String
     let title: String
     let value: String
@@ -307,74 +391,29 @@ struct BumpStatusCard: View {
                 .foregroundColor(color)
             
             Text(value)
-                .font(.headline)
+                .font(.title3)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
             
             Text(title)
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.7))
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
-    }
-}
-
-struct DetectedUserDot: View {
-    let user: BumpifyUser
-    let index: Int
-    @State private var animationOffset = false
-    
-    private var position: (x: CGFloat, y: CGFloat) {
-        let angle = Double(index) * (2 * .pi / 3) // Distribute around circle
-        let radius: CGFloat = 80
-        return (
-            x: cos(angle) * radius,
-            y: sin(angle) * radius
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
         )
     }
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(red: 1.0, green: 0.4, blue: 0.2),
-                            Color(red: 1.0, green: 0.6, blue: 0.0)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 20, height: 20)
-                .shadow(radius: 3)
-                .scaleEffect(animationOffset ? 1.2 : 1.0)
-                .animation(
-                    Animation.easeInOut(duration: 1.5)
-                        .repeatForever(autoreverses: true)
-                        .delay(Double(index) * 0.3),
-                    value: animationOffset
-                )
-            
-            Text(user.firstName)
-                .font(.caption2)
-                .foregroundColor(.white)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-                .background(Color.black.opacity(0.6))
-                .cornerRadius(4)
-        }
-        .offset(x: position.x, y: position.y)
-        .onAppear {
-            animationOffset = true
-        }
-    }
 }
 
-struct QuickActionButton: View {
+// MARK: - Simple Action Button
+struct SimpleActionButton: View {
     let icon: String
     let title: String
     let action: () -> Void
@@ -384,229 +423,46 @@ struct QuickActionButton: View {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.title3)
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+                    .foregroundColor(.orange)
                 
                 Text(title)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white.opacity(0.8))
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(12)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.ultraThinMaterial)
+            )
         }
     }
 }
 
-// MARK: - Bump Filters View
-struct BumpFiltersView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var ageRange: ClosedRange<Double> = 18...35
-    @State private var maxDistance: Double = 10.0
-    @State private var selectedInterests: Set<String> = []
-    @State private var lookingFor: Set<UserPreferences.LookingForType> = [.friends]
-    
-    private let availableInterests = [
-        "Musik", "Sport", "Reisen", "Kaffee", "Kunst", "Fotografie",
-        "Bücher", "Gaming", "Kochen", "Tanzen", "Filme", "Natur"
-    ]
-    
+// MARK: - Settings Sheet
+struct SettingsSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        Text("🔍 Bump-Filter")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        VStack(spacing: 20) {
-                            // Age Range
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Altersbereich: \(Int(ageRange.lowerBound))-\(Int(ageRange.upperBound)) Jahre")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                // Custom range slider would go here
-                                HStack {
-                                    Text("18")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.6))
-                                    
-                                    Spacer()
-                                    
-                                    Text("65")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.6))
-                                }
-                            }
-                            
-                            // Distance
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Entfernung: \(Int(maxDistance)) km")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                Slider(value: $maxDistance, in: 1...50, step: 1)
-                                    .accentColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                            }
-                            
-                            // Looking For
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Ich suche nach:")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 10) {
-                                    ForEach(UserPreferences.LookingForType.allCases, id: \.self) { type in
-                                        LookingForButton(
-                                            type: type,
-                                            isSelected: lookingFor.contains(type)
-                                        ) {
-                                            if lookingFor.contains(type) {
-                                                lookingFor.remove(type)
-                                            } else {
-                                                lookingFor.insert(type)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Interests
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Interessen:")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
-                                    ForEach(availableInterests, id: \.self) { interest in
-                                        InterestButton(
-                                            interest: interest,
-                                            isSelected: selectedInterests.contains(interest)
-                                        ) {
-                                            if selectedInterests.contains(interest) {
-                                                selectedInterests.remove(interest)
-                                            } else {
-                                                selectedInterests.insert(interest)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        .padding()
-                    }
-                }
-                
-                // Apply Button
                 VStack {
-                    Spacer()
+                    Text("⚙️ Bump Einstellungen")
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
                     
-                    Button(action: {
-                        // Apply filters
-                        dismiss()
-                    }) {
-                        Text("Filter anwenden")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 1.0, green: 0.4, blue: 0.2),
-                                        Color(red: 1.0, green: 0.6, blue: 0.0)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(12)
-                    }
-                    .padding()
-                    .background(Color(red: 0.1, green: 0.12, blue: 0.18))
+                    Spacer()
                 }
+                .padding()
             }
+            .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Schließen") {
-                        dismiss()
-                    }
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Zurücksetzen") {
-                        ageRange = 18...35
-                        maxDistance = 10.0
-                        selectedInterests.removeAll()
-                        lookingFor = [.friends]
-                    }
-                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
-                }
-            }
         }
     }
 }
 
-struct LookingForButton: View {
-    let type: UserPreferences.LookingForType
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: type.icon)
-                    .font(.caption)
-                
-                Text(type.displayName)
-                    .font(.caption)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                isSelected ?
-                Color(red: 1.0, green: 0.5, blue: 0.1).opacity(0.3) :
-                Color.white.opacity(0.1)
-            )
-            .foregroundColor(isSelected ? Color(red: 1.0, green: 0.5, blue: 0.1) : .white)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color(red: 1.0, green: 0.5, blue: 0.1) : Color.clear, lineWidth: 1)
-            )
-        }
-    }
-}
-
-struct InterestButton: View {
-    let interest: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(interest)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(
-                    isSelected ?
-                    Color(red: 1.0, green: 0.5, blue: 0.1).opacity(0.3) :
-                    Color.white.opacity(0.1)
-                )
-                .foregroundColor(isSelected ? Color(red: 1.0, green: 0.5, blue: 0.1) : .white)
-                .cornerRadius(6)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(isSelected ? Color(red: 1.0, green: 0.5, blue: 0.1) : Color.clear, lineWidth: 1)
-                )
-        }
-    }
+#Preview {
+    BumpView()
+        .environmentObject(AuthenticationManager())
 }

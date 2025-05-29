@@ -47,7 +47,8 @@
 				Components/Cards/FeatureCard.swift,
 				Components/Forms/BumpifyTextField.swift,
 				ContentView.swift,
-				Models/DataModels.swift,
+				Models/AdditionalModels.swift,
+				Models/BumpifyUser.swift,
 				"Preview Content/Preview Assets.xcassets",
 				Resources/Assets.xcassets,
 				Services/AuthenticationManager.swift,
@@ -79,7 +80,6 @@
 			membershipExceptions = (
 				BumpifyApp.swift,
 				ContentView.swift,
-				Models/DataModels.swift,
 				"Preview Content/Preview Assets.xcassets",
 				Resources/Assets.xcassets,
 				Resources/Info.plist,

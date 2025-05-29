@@ -1,6 +1,7 @@
+// AuthenticationManager.swift - Komplett mit korrigierter Syntax
+
 import SwiftUI
 import Combine
-import Foundation
 
 class AuthenticationManager: ObservableObject {
     @Published var isAuthenticated = false
@@ -8,256 +9,259 @@ class AuthenticationManager: ObservableObject {
     @Published var hasCompletedProfileSetup = false
     @Published var currentUser: BumpifyUser?
     @Published var isLoading = false
-    @Published var errorMessage: String?
-    
-    private let userDefaults = UserDefaults.standard
     
     init() {
-        loadPersistedState()
-    }
-    
-    // MARK: - Persistence
-    private func loadPersistedState() {
-        hasCompletedOnboarding = userDefaults.bool(forKey: "hasCompletedOnboarding")
-        isAuthenticated = userDefaults.bool(forKey: "isAuthenticated")
-        hasCompletedProfileSetup = userDefaults.bool(forKey: "hasCompletedProfileSetup")
+        // Für Demo: Immer mit sauberem Slate starten
+        // Kommentiere diese Zeilen aus, wenn du den gespeicherten Status behalten willst:
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
+        UserDefaults.standard.removeObject(forKey: "currentUser")
         
-        if isAuthenticated {
-            loadUserData()
-        }
+        // Load actual values
+        hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        hasCompletedProfileSetup = UserDefaults.standard.bool(forKey: "hasCompletedProfileSetup")
+        
+        // Load saved user if exists
+        loadCurrentUser()
     }
     
-    private func saveUserData() {
-        if let user = currentUser,
-           let userData = try? JSONEncoder().encode(user) {
-            userDefaults.set(userData, forKey: "userData")
-        }
-    }
-    
-    private func loadUserData() {
-        if let userData = userDefaults.data(forKey: "userData"),
-           let user = try? JSONDecoder().decode(BumpifyUser.self, from: userData) {
-            currentUser = user
-        }
-    }
-    
-    // MARK: - Onboarding
-    func completeOnboarding() {
-        withAnimation(.easeInOut(duration: 0.6)) {
-            hasCompletedOnboarding = true
-        }
-        userDefaults.set(true, forKey: "hasCompletedOnboarding")
-    }
-    
-    func completeProfileSetup() {
-        withAnimation(.easeInOut(duration: 0.6)) {
-            hasCompletedProfileSetup = true
-        }
-        userDefaults.set(true, forKey: "hasCompletedProfileSetup")
-    }
-    
-    func resetOnboarding() {
-        hasCompletedOnboarding = false
-        hasCompletedProfileSetup = false
-        userDefaults.set(false, forKey: "hasCompletedOnboarding")
-        userDefaults.set(false, forKey: "hasCompletedProfileSetup")
-    }
-    
-    // MARK: - Authentication
+    // MARK: - Authentication Methods
     func login(email: String, password: String) {
-        guard isValidEmail(email), password.count >= 6 else {
-            errorMessage = "Ungültige E-Mail oder Passwort"
-            return
-        }
-        
         isLoading = true
-        errorMessage = nil
         
         // Simulate API call
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            self.isLoading = false
+            
+            // Mock successful login
             let user = BumpifyUser(
-                firstName: "Demo",
-                lastName: "User",
-                email: email
+                id: UUID().uuidString,
+                firstName: "Max",
+                lastName: "Mustermann",
+                email: email,
+                profileImageURL: nil,
+                interests: ["Musik", "Reisen", "Sport"],
+                age: 25,
+                bio: "Immer auf der Suche nach neuen Abenteuern!",
+                location: "Zweibrücken, Deutschland"
             )
             
-            withAnimation(.easeInOut(duration: 0.6)) {
-                self.isAuthenticated = true
-                self.currentUser = user
-            }
+            self.currentUser = user
+            self.isAuthenticated = true
+            // NACH LOGIN: Onboarding noch nicht abgeschlossen
+            self.hasCompletedOnboarding = false
+            self.hasCompletedProfileSetup = false
             
-            self.userDefaults.set(true, forKey: "isAuthenticated")
-            self.saveUserData()
-            self.isLoading = false
+            // Save to UserDefaults
+            self.saveCurrentUser(user)
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
         }
     }
     
-    func register(firstName: String, lastName: String, email: String, password: String) {
-        guard !firstName.isEmpty, !lastName.isEmpty,
-              isValidEmail(email), password.count >= 6 else {
-            errorMessage = "Bitte alle Felder korrekt ausfüllen"
-            return
-        }
-        
+    func signUp(firstName: String, lastName: String, email: String, password: String) {
         isLoading = true
-        errorMessage = nil
         
         // Simulate API call
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            let newUser = BumpifyUser(
+            self.isLoading = false
+            
+            // Mock successful sign up
+            let user = BumpifyUser(
+                id: UUID().uuidString,
                 firstName: firstName,
                 lastName: lastName,
-                email: email
+                email: email,
+                profileImageURL: nil,
+                interests: [],
+                age: 25,
+                bio: "",
+                location: ""
             )
             
-            withAnimation(.easeInOut(duration: 0.6)) {
-                self.isAuthenticated = true
-                self.currentUser = newUser
-            }
+            self.currentUser = user
+            self.isAuthenticated = true
+            // NACH REGISTER: Onboarding noch nicht abgeschlossen
+            self.hasCompletedOnboarding = false
+            self.hasCompletedProfileSetup = false
             
-            self.userDefaults.set(true, forKey: "isAuthenticated")
-            self.saveUserData()
-            self.isLoading = false
+            // Save to UserDefaults
+            self.saveCurrentUser(user)
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
         }
     }
     
-    func logout() {
-        withAnimation(.easeInOut(duration: 0.6)) {
-            isAuthenticated = false
-            hasCompletedProfileSetup = false
-            currentUser = nil
-        }
-        
-        userDefaults.set(false, forKey: "isAuthenticated")
-        userDefaults.set(false, forKey: "hasCompletedProfileSetup")
-        userDefaults.removeObject(forKey: "userData")
-        clearAllUserData()
-    }
-    
-    // MARK: - Social Authentication
     func loginWithApple() {
         isLoading = true
         
+        // Simulate Apple Sign In
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.isLoading = false
+            
             let user = BumpifyUser(
+                id: UUID().uuidString,
                 firstName: "Apple",
                 lastName: "User",
-                email: "apple.user@icloud.com"
+                email: "apple.user@example.com",
+                profileImageURL: nil,
+                interests: ["Tech", "Design"],
+                age: 28,
+                bio: "Apple Sign In User",
+                location: "Deutschland"
             )
             
-            withAnimation(.easeInOut(duration: 0.6)) {
-                self.isAuthenticated = true
-                self.currentUser = user
-            }
+            self.currentUser = user
+            self.isAuthenticated = true
+            // NACH APPLE LOGIN: Onboarding noch nicht abgeschlossen
+            self.hasCompletedOnboarding = false
+            self.hasCompletedProfileSetup = false
             
-            self.userDefaults.set(true, forKey: "isAuthenticated")
-            self.saveUserData()
-            self.isLoading = false
+            self.saveCurrentUser(user)
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
         }
     }
     
     func loginWithGoogle() {
         isLoading = true
         
+        // Simulate Google Sign In
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.isLoading = false
+            
             let user = BumpifyUser(
+                id: UUID().uuidString,
                 firstName: "Google",
                 lastName: "User",
-                email: "google.user@gmail.com"
+                email: "google.user@gmail.com",
+                profileImageURL: nil,
+                interests: ["Tech", "Innovation"],
+                age: 26,
+                bio: "Google Sign In User",
+                location: "Deutschland"
             )
             
-            withAnimation(.easeInOut(duration: 0.6)) {
-                self.isAuthenticated = true
-                self.currentUser = user
-            }
+            self.currentUser = user
+            self.isAuthenticated = true
+            // NACH GOOGLE LOGIN: Onboarding noch nicht abgeschlossen
+            self.hasCompletedOnboarding = false
+            self.hasCompletedProfileSetup = false
             
-            self.userDefaults.set(true, forKey: "isAuthenticated")
-            self.saveUserData()
-            self.isLoading = false
+            self.saveCurrentUser(user)
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
         }
     }
     
-    // MARK: - Password Reset
-    func resetPassword(email: String) {
-        guard isValidEmail(email) else {
-            errorMessage = "Ungültige E-Mail-Adresse"
-            return
-        }
+    func signUpWithApple() {
+        loginWithApple() // Same implementation for demo
+    }
+    
+    func signUpWithGoogle() {
+        loginWithGoogle() // Same implementation for demo
+    }
+    
+    func logout() {
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        hasCompletedProfileSetup = false
         
-        isLoading = true
-        errorMessage = nil
+        // Clear UserDefaults
+        UserDefaults.standard.removeObject(forKey: "currentUser")
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
+    }
+    
+    func deleteAccount() {
+        // Simulate account deletion
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        hasCompletedProfileSetup = false
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.errorMessage = "Passwort-Reset E-Mail wurde gesendet"
-            self.isLoading = false
+        // Clear all UserDefaults
+        UserDefaults.standard.removeObject(forKey: "currentUser")
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
+    }
+    
+    // MARK: - Onboarding Methods
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        print("✅ Onboarding completed - moving to Profile Setup")
+    }
+    
+    func completeProfileSetup() {
+        hasCompletedProfileSetup = true
+        UserDefaults.standard.set(true, forKey: "hasCompletedProfileSetup")
+        print("✅ Profile Setup completed - moving to Main App")
+    }
+    
+    // MARK: - User Data Management
+    private func saveCurrentUser(_ user: BumpifyUser) {
+        if let encoded = try? JSONEncoder().encode(user) {
+            UserDefaults.standard.set(encoded, forKey: "currentUser")
         }
     }
     
-    // MARK: - Profile Management
-    func updateProfile(firstName: String? = nil, lastName: String? = nil, bio: String? = nil, age: Int? = nil, interests: [String]? = nil) {
+    private func loadCurrentUser() {
+        if let userData = UserDefaults.standard.data(forKey: "currentUser"),
+           let user = try? JSONDecoder().decode(BumpifyUser.self, from: userData) {
+            currentUser = user
+            isAuthenticated = true
+        }
+    }
+    
+    // MARK: - Profile Update Methods
+    func updateProfile(firstName: String, lastName: String, bio: String, interests: [String]) {
         guard var user = currentUser else { return }
         
-        if let firstName = firstName { user.firstName = firstName }
-        if let lastName = lastName { user.lastName = lastName }
-        if let bio = bio { user.bio = bio }
-        if let age = age { user.age = age }
-        if let interests = interests { user.interests = interests }
+        user.firstName = firstName
+        user.lastName = lastName
+        user.bio = bio
+        user.interests = interests
         
         currentUser = user
-        saveUserData()
+        saveCurrentUser(user)
     }
     
-    func updateProfileImage(_ imageName: String) {
+    func updateLocation(_ location: String) {
         guard var user = currentUser else { return }
-        user.profileImage = imageName
+        user.location = location
         currentUser = user
-        saveUserData()
+        saveCurrentUser(user)
     }
     
-    // MARK: - Helper Methods
-    private func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        return NSPredicate(format: "SELF MATCHES %@", emailRegex).evaluate(with: email)
+    func updateAge(_ age: Int) {
+        guard var user = currentUser else { return }
+        user.age = age
+        currentUser = user
+        saveCurrentUser(user)
     }
     
-    private func clearAllUserData() {
-        let keys = [
-            "userData",
-            "userPreferences",
-            "appState",
-            "cachedMatches",
-            "cachedConversations"
-        ]
+    // MARK: - Debug Methods
+    func resetApp() {
+        print("🔄 Resetting app to initial state")
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        hasCompletedProfileSetup = false
         
-        keys.forEach { userDefaults.removeObject(forKey: $0) }
+        UserDefaults.standard.removeObject(forKey: "currentUser")
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        UserDefaults.standard.set(false, forKey: "hasCompletedProfileSetup")
     }
     
-    // MARK: - Mock Data for Development
-    func createMockUser() -> BumpifyUser {
-        return BumpifyUser(
-            firstName: "Max",
-            lastName: "Mustermann",
-            email: "max@example.com",
-            bio: "Ich liebe es, neue Menschen kennenzulernen!",
-            age: 28,
-            interests: ["Reisen", "Musik", "Sport", "Kaffee"]
-        )
-    }
-    
-    func getCurrentUserId() -> UUID? {
-        return currentUser?.id
-    }
-    
-    func isCurrentUser(_ userId: UUID) -> Bool {
-        return currentUser?.id == userId
-    }
-    
-    // MARK: - Error Handling
-    func clearError() {
-        errorMessage = nil
-    }
-    
-    func showError(_ message: String) {
-        errorMessage = message
+    func getCurrentState() -> String {
+        return """
+        🔍 Current Auth State:
+        - isAuthenticated: \(isAuthenticated)
+        - hasCompletedOnboarding: \(hasCompletedOnboarding)
+        - hasCompletedProfileSetup: \(hasCompletedProfileSetup)
+        - currentUser: \(currentUser?.fullName ?? "None")
+        """
     }
 }
