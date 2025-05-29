@@ -1,5 +1,5 @@
 //
-//  SettingsView.swift
+//  BumpifyUser.swift
 //  bumpify
 //
 //  Created by Klaus Röckel on 29.05.25.
