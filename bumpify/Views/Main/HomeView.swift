@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-struct InteractiveHomeView: View {
+struct HomeView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @State private var recentBumps: [RecentBump] = []
     @State private var nearbyHotspots: [HomeHotspot] = []
@@ -1196,6 +1196,6 @@ enum HomeHotspotType {
 }
 
 #Preview {
-    InteractiveHomeView()
+    HomeView()
         .environmentObject(AuthenticationManager())
 }

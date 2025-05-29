@@ -1,301 +1,263 @@
-// BumpView.swift - Korrigierte Version mit BLE Manager Integration
+// BumpView.swift - Ersetzt deine bestehende BumpView.swift komplett
 
 import SwiftUI
 
 struct BumpView: View {
     @EnvironmentObject var authManager: AuthenticationManager
-    @StateObject private var bleManager = BumpifyBLEManager() // BLE Manager hinzugefügt
-    
     @State private var isBumping = false
     @State private var activeTime = 0
     @State private var timer: Timer?
     @State private var pulseScale: Double = 1.0
     @State private var rotationAngle: Double = 0
     @State private var showSettings = false
-    
-    // Animation states - alle als Double für Konsistenz
-    @State private var waveScale: Double = 1.0
-    @State private var glowOpacity: Double = 0.5
-    @State private var ringScale1: Double = 1.0
-    @State private var ringScale2: Double = 1.0
-    @State private var ringScale3: Double = 1.0
-    @State private var ringScale4: Double = 1.0
+    @State private var animateStats = false
+    @State private var nearbyCount = 3
     
     var body: some View {
         ZStack {
-            // Background
+            // Background - Matching HomeView
             backgroundGradient
             
-            VStack(spacing: 0) {
-                // Header
-                headerSection
-                    .padding(.top, 20)
-                
-                Spacer()
-                
-                // Main visualization
-                mainVisualization
-                
-                Spacer()
-                
-                // Status cards
-                statusSection
-                    .padding(.horizontal, 20)
-                
-                // Controls
-                controlSection
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 100)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // Header - Matching HomeView style
+                    headerSection
+                    
+                    // Status Cards - Matching HomeView stats
+                    statusCardsSection
+                    
+                    // Main Bump Visualization
+                    mainBumpSection
+                    
+                    // Control Buttons
+                    controlSection
+                    
+                    // Quick Settings
+                    quickSettingsSection
+                    
+                    // Bottom padding for tab bar
+                    Spacer().frame(height: 100)
+                }
+                .padding(.top, 60)
+                .padding(.horizontal, 20)
             }
+            
+            // Floating particles - Matching HomeView
+            floatingParticles
         }
         .ignoresSafeArea(edges: .top)
         .onAppear {
-            startAllAnimations()
-            setupBLEObservers()
+            startAnimations()
         }
         .onDisappear {
             stopAllTimers()
-            cleanupBLEObservers()
         }
         .sheet(isPresented: $showSettings) {
-            SettingsSheet()
+            BumpSettingsView()
         }
     }
     
-    // MARK: - Background
+    // MARK: - Background - Matching HomeView
     private var backgroundGradient: some View {
         ZStack {
-            // Base gradient
+            Color(red: 0.12, green: 0.16, blue: 0.24)
+                .ignoresSafeArea()
+            
             LinearGradient(
-                colors: [Color.black, Color(red: 0.05, green: 0.05, blue: 0.15), Color.black],
+                colors: [
+                    Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.1),
+                    Color.clear,
+                    Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.05)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            
-            // Glow effect when active
-            if isBumping {
-                RadialGradient(
-                    colors: [Color.orange.opacity(0.1), Color.red.opacity(0.05), Color.clear],
-                    center: .center,
-                    startRadius: 100,
-                    endRadius: 400
-                )
-                .opacity(glowOpacity)
-            }
-            
-            // Floating particles
-            particleEffects
+            .ignoresSafeArea()
         }
     }
     
-    // MARK: - Particle Effects
-    private var particleEffects: some View {
-        ForEach(0..<8, id: \.self) { i in
+    // MARK: - Floating Particles - Matching HomeView
+    private var floatingParticles: some View {
+        ForEach(0..<6, id: \.self) { i in
             Circle()
-                .fill(Color.orange.opacity(0.2))
-                .frame(width: 3, height: 3)
+                .fill(Color.orange.opacity(Double.random(in: 0.05...0.15)))
+                .frame(width: CGFloat.random(in: 15...25))
                 .offset(
-                    x: Double.random(in: -150...150),
-                    y: Double.random(in: -300...300) + (isBumping ? -10 : 10)
+                    x: CGFloat.random(in: -150...150),
+                    y: CGFloat.random(in: -300...300) + (animateStats ? -20 : 20)
                 )
                 .animation(
-                    Animation.easeInOut(duration: Double.random(in: 2...4))
+                    Animation.easeInOut(duration: Double.random(in: 4...6))
                         .repeatForever(autoreverses: true)
-                        .delay(Double(i) * 0.2),
-                    value: isBumping
+                        .delay(Double(i) * 0.3),
+                    value: animateStats
                 )
         }
     }
     
-    // MARK: - Header
+    // MARK: - Header Section - Matching HomeView
     private var headerSection: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("⚡ Bump Modus")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text(getStatusText())
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
             
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("⚡ Bump Modus")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.orange, Color.red],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+            Spacer()
+            
+            Button(action: {
+                showSettings = true
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
                         )
                     
-                    Text(getStatusText())
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                
-                Spacer()
-                
-                Button(action: { showSettings = true }) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.title2)
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.white)
-                        .padding(12)
-                        .background(Circle().fill(Color.white.opacity(0.1)))
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    // MARK: - Main Visualization
-    private var mainVisualization: some View {
-        ZStack {
-            // Outer rings
-            Circle()
-                .stroke(Color.orange.opacity(0.4), lineWidth: 2)
-                .frame(width: 260)
-                .scaleEffect(ringScale1)
-            
-            Circle()
-                .stroke(Color.orange.opacity(0.3), lineWidth: 2)
-                .frame(width: 320)
-                .scaleEffect(ringScale2)
-            
-            Circle()
-                .stroke(Color.orange.opacity(0.2), lineWidth: 2)
-                .frame(width: 380)
-                .scaleEffect(ringScale3)
-            
-            Circle()
-                .stroke(Color.orange.opacity(0.1), lineWidth: 2)
-                .frame(width: 440)
-                .scaleEffect(ringScale4)
-            
-            // Main orb
-            ZStack {
-                // Glow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.orange.opacity(0.4), Color.clear],
-                            center: .center,
-                            startRadius: 50,
-                            endRadius: 100
-                        )
-                    )
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 15)
-                    .scaleEffect(pulseScale)
-                
-                // Main circle
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .background(
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.orange.opacity(0.3), Color.red.opacity(0.2)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.3), lineWidth: 2)
-                    )
-                    .frame(width: 120, height: 120)
-                
-                // Content
-                VStack(spacing: 6) {
-                    Image(systemName: isBumping ? "wifi.circle" : "location.circle")
-                        .font(.system(size: 32, weight: .medium))
-                        .foregroundColor(.white)
-                        .rotationEffect(.degrees(rotationAngle))
-                    
-                    if isBumping && bleManager.nearbyUsers.count > 0 {
-                        Text("\(bleManager.nearbyUsers.count)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        Text("in der Nähe")
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                }
-            }
-            
-            // Detection indicators
-            if isBumping {
-                ForEach(bleManager.nearbyUsers.indices, id: \.self) { index in
-                    if index < 6 { // Maximal 6 Indikatoren anzeigen
-                        detectionIndicator(index: index)
-                    }
                 }
             }
         }
-        .frame(height: 400)
     }
     
-    // MARK: - Detection Indicator
-    private func detectionIndicator(index: Int) -> some View {
-        let angle = Double(index) * (360.0 / Double(max(bleManager.nearbyUsers.count, 1)))
-        let radius = 140.0
-        
-        return Circle()
-            .fill(Color.green)
-            .frame(width: 10, height: 10)
-            .overlay(Circle().stroke(Color.white, lineWidth: 1))
-            .offset(
-                x: cos(angle * .pi / 180) * radius,
-                y: sin(angle * .pi / 180) * radius
-            )
-            .scaleEffect(waveScale)
-    }
-    
-    // MARK: - Status Section
-    private var statusSection: some View {
+    // MARK: - Status Cards - Matching HomeView design
+    private var statusCardsSection: some View {
         HStack(spacing: 16) {
-            SimpleStatusCard(
-                icon: "heart.fill",
-                title: "Matches",
-                value: "12",
-                color: .pink
+            StatusCard(
+                icon: isBumping ? "circle.fill" : "circle",
+                title: "Status",
+                value: isBumping ? "Aktiv" : "Inaktiv",
+                color: isBumping ? .green : .gray,
+                animate: isBumping
             )
             
-            SimpleStatusCard(
-                icon: "location.fill",
-                title: "Reichweite",
-                value: "50m",
-                color: .blue
+            StatusCard(
+                icon: "person.2.fill",
+                title: "In der Nähe",
+                value: "\(nearbyCount)",
+                color: .orange,
+                animate: isBumping
             )
             
-            SimpleStatusCard(
-                icon: "bolt.fill",
-                title: "Bluetooth",
-                value: bleManager.bluetoothReady ? "✓" : "✗",
-                color: bleManager.bluetoothReady ? .green : .red
+            StatusCard(
+                icon: "clock.fill",
+                title: "Aktive Zeit",
+                value: formatTime(activeTime),
+                color: .blue,
+                animate: isBumping
             )
+        }
+    }
+    
+    // MARK: - Main Bump Visualization
+    private var mainBumpSection: some View {
+        VStack(spacing: 30) {
+            ZStack {
+                // Outer rings with glass effect
+                ForEach(0..<3, id: \.self) { ring in
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: isBumping ?
+                                [Color.orange.opacity(0.6), Color.red.opacity(0.4)] :
+                                [Color.white.opacity(0.2), Color.white.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
+                        )
+                        .frame(width: 200 + CGFloat(ring * 40))
+                        .scaleEffect(isBumping ? 1.0 + CGFloat(ring) * 0.1 : 1.0)
+                        .opacity(isBumping ? 1.0 - Double(ring) * 0.2 : 0.3)
+                        .animation(
+                            isBumping ?
+                            Animation.easeInOut(duration: 2.0)
+                                .repeatForever()
+                                .delay(Double(ring) * 0.3) :
+                            .default,
+                            value: isBumping
+                        )
+                }
+                
+                // Center orb with glass effect
+                ZStack {
+                    // Glow background
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: isBumping ?
+                                [Color.orange.opacity(0.4), Color.clear] :
+                                [Color.white.opacity(0.1), Color.clear],
+                                center: .center,
+                                startRadius: 50,
+                                endRadius: 100
+                            )
+                        )
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 15)
+                        .scaleEffect(pulseScale)
+                    
+                    // Main circle with glass effect
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .background(
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: isBumping ?
+                                        [Color.orange.opacity(0.3), Color.red.opacity(0.2)] :
+                                        [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.2), lineWidth: 2)
+                        )
+                        .frame(width: 120, height: 120)
+                    
+                    // Content
+                    VStack(spacing: 8) {
+                        Image(systemName: isBumping ? "wifi.circle" : "location.circle")
+                            .font(.system(size: 36, weight: .medium))
+                            .foregroundColor(.white)
+                            .rotationEffect(.degrees(rotationAngle))
+                        
+                        if isBumping {
+                            Text("Suche...")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                }
+            }
+            .frame(height: 300)
         }
     }
     
     // MARK: - Control Section
     private var controlSection: some View {
-        VStack(spacing: 16) {
-            // Main button
+        VStack(spacing: 20) {
+            // Main button - Matching HomeView gradient style
             Button(action: toggleBump) {
                 HStack(spacing: 16) {
                     Image(systemName: isBumping ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.title2)
+                        .font(.system(size: 24, weight: .semibold))
                     
                     Text(isBumping ? "Bump Stoppen" : "Bump Starten")
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(.system(size: 18, weight: .bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -304,92 +266,97 @@ struct BumpView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(
                             LinearGradient(
-                                colors: isBumping ? [Color.red, Color.red.opacity(0.8)] : [Color.orange, Color.red],
+                                colors: isBumping ?
+                                [Color.red, Color.red.opacity(0.8)] :
+                                [Color.orange, Color.red],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
+                        .shadow(color: Color.orange.opacity(0.3), radius: 15, x: 0, y: 8)
                 )
-                .shadow(color: Color.orange.opacity(0.3), radius: 15, x: 0, y: 8)
             }
-            .disabled(!bleManager.bluetoothReady)
-            .opacity(bleManager.bluetoothReady ? 1.0 : 0.6)
+            .scaleEffect(isBumping ? 0.98 : 1.0)
+            .animation(.spring(response: 0.3), value: isBumping)
+        }
+    }
+    
+    // MARK: - Quick Settings - Matching HomeView cards
+    private var quickSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("⚙️ Einstellungen")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
             
-            // Bluetooth Status Info
-            if !bleManager.bluetoothReady {
-                Text(bleManager.bluetoothStatus)
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .multilineTextAlignment(.center)
-            }
-            
-            // Quick actions
             HStack(spacing: 12) {
-                SimpleActionButton(icon: "target", title: "Boost") {}
-                SimpleActionButton(icon: "person.2.fill", title: "Filter") {}
-                SimpleActionButton(icon: "map.fill", title: "Karte") {}
+                QuickSettingCard(
+                    icon: "target",
+                    title: "Reichweite",
+                    subtitle: "10m Radius",
+                    color: .blue
+                ) {}
+                
+                QuickSettingCard(
+                    icon: "person.2.fill",
+                    title: "Filter",
+                    subtitle: "Alle Nutzer",
+                    color: .purple
+                ) {}
+            }
+            
+            HStack(spacing: 12) {
+                QuickSettingCard(
+                    icon: "bell.fill",
+                    title: "Benachrichtigungen",
+                    subtitle: "Aktiviert",
+                    color: .green
+                ) {}
+                
+                QuickSettingCard(
+                    icon: "shield.fill",
+                    title: "Privatsphäre",
+                    subtitle: "Sicher",
+                    color: .orange
+                ) {}
             }
         }
     }
     
-    // MARK: - Actions
+    // MARK: - Helper Functions
     private func toggleBump() {
-        guard bleManager.bluetoothReady else {
-            print("❌ Bluetooth not ready")
-            return
-        }
-        
         isBumping.toggle()
         
         if isBumping {
             startTimer()
-            // BLE Manager starten
-            bleManager.startBumpMode(userID: authManager.currentUser?.id ?? "anonymous")
+            nearbyCount = Int.random(in: 1...8)
         } else {
             stopTimer()
             activeTime = 0
-            // BLE Manager stoppen
-            bleManager.stopBumpMode()
+            nearbyCount = 0
         }
-        
-        print("🔄 Bump Mode: \(isBumping ? "Started" : "Stopped")")
     }
     
-    private func startAllAnimations() {
-        // Pulse animation
+    private func startAnimations() {
         withAnimation(Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
             pulseScale = 1.1
-            glowOpacity = 0.8
+            animateStats = true
         }
         
-        // Rotation
         withAnimation(Animation.linear(duration: 8.0).repeatForever(autoreverses: false)) {
             rotationAngle = 360
-        }
-        
-        // Ring animations
-        withAnimation(Animation.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-            ringScale1 = 1.05
-        }
-        withAnimation(Animation.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
-            ringScale2 = 1.08
-        }
-        withAnimation(Animation.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-            ringScale3 = 1.12
-        }
-        withAnimation(Animation.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
-            ringScale4 = 1.15
-        }
-        
-        // Wave animation
-        withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-            waveScale = 1.3
         }
     }
     
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            activeTime += 1
+            if isBumping {
+                activeTime += 1
+                
+                // Simulate nearby users changing
+                if activeTime % 5 == 0 {
+                    nearbyCount = Int.random(in: 0...8)
+                }
+            }
         }
     }
     
@@ -404,10 +371,8 @@ struct BumpView: View {
     }
     
     private func getStatusText() -> String {
-        if !bleManager.bluetoothReady {
-            return bleManager.bluetoothStatus
-        } else if isBumping {
-            return "Aktiv • \(formatTime(activeTime)) • \(bleManager.nearbyUsers.count) gefunden"
+        if isBumping {
+            return "Aktiv seit \(formatTime(activeTime)) • \(nearbyCount) Nutzer gefunden"
         } else {
             return "Bereit zum Starten"
         }
@@ -418,112 +383,156 @@ struct BumpView: View {
         let secs = seconds % 60
         return String(format: "%d:%02d", minutes, secs)
     }
-    
-    // MARK: - BLE Observer Setup
-    private func setupBLEObservers() {
-        NotificationCenter.default.addObserver(
-            forName: .bumpDetected,
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let bumpEvent = notification.object as? BumpEvent {
-                handleBumpDetected(bumpEvent)
-            }
-        }
-    }
-    
-    private func cleanupBLEObservers() {
-        NotificationCenter.default.removeObserver(self, name: .bumpDetected, object: nil)
-    }
-    
-    private func handleBumpDetected(_ bumpEvent: BumpEvent) {
-        print("🎯 UI: Bump detected with \(bumpEvent.detectedUser.name)")
-        // Hier könntest du eine Bump-Benachrichtigung anzeigen
-        // oder eine Animation triggern
-    }
 }
 
-// MARK: - Simple Status Card
-struct SimpleStatusCard: View {
+// MARK: - Status Card - Matching HomeView design
+struct StatusCard: View {
     let icon: String
     let title: String
     let value: String
     let color: Color
+    let animate: Bool
+    
+    @State private var isAnimating = false
     
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(color)
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 40, height: 40)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(color)
+                    .scaleEffect(isAnimating ? 1.1 : 1.0)
+            }
             
             Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
             
             Text(title)
-                .font(.caption2)
+                .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
+        .padding(.vertical, 20)
+        .background(glassBackground)
+        .cornerRadius(16)
+        .onAppear {
+            if animate {
+                withAnimation(
+                    Animation.easeInOut(duration: 1.0)
+                        .repeatForever(autoreverses: true)
+                ) {
+                    isAnimating = true
+                }
+            }
+        }
+    }
+    
+    private var glassBackground: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(.ultraThinMaterial)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
     }
 }
 
-// MARK: - Simple Action Button
-struct SimpleActionButton: View {
+// MARK: - Quick Setting Card - Matching HomeView design
+struct QuickSettingCard: View {
     let icon: String
     let title: String
+    let subtitle: String
+    let color: Color
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundColor(.orange)
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(color.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(color)
+                }
                 
-                Text(title)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white.opacity(0.8))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                Spacer()
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(.ultraThinMaterial)
-            )
+            .padding(16)
+            .background(glassBackground)
+            .cornerRadius(16)
         }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var glassBackground: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(.ultraThinMaterial)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
     }
 }
 
-// MARK: - Settings Sheet
-struct SettingsSheet: View {
+// MARK: - Settings View
+struct BumpSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color(red: 0.12, green: 0.16, blue: 0.24)
+                    .ignoresSafeArea()
                 
-                VStack {
+                VStack(spacing: 20) {
                     Text("⚙️ Bump Einstellungen")
-                        .font(.largeTitle)
+                        .font(.title)
+                        .fontWeight(.bold)
                         .foregroundColor(.white)
+                    
+                    Text("Hier kannst du deine Bump-Einstellungen anpassen")
+                        .foregroundColor(.white.opacity(0.7))
                     
                     Spacer()
                 }
                 .padding()
             }
-            .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Fertig") {
+                        dismiss()
+                    }
+                    .foregroundColor(.orange)
+                }
+            }
         }
     }
 }
