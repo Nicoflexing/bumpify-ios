@@ -1,15 +1,16 @@
-// BumpView.swift - Fehlerfreie Version ohne Typkonflikte
+// BumpView.swift - Korrigierte Version mit BLE Manager Integration
 
 import SwiftUI
 
 struct BumpView: View {
     @EnvironmentObject var authManager: AuthenticationManager
+    @StateObject private var bleManager = BumpifyBLEManager() // BLE Manager hinzugefügt
+    
     @State private var isBumping = false
     @State private var activeTime = 0
     @State private var timer: Timer?
     @State private var pulseScale: Double = 1.0
     @State private var rotationAngle: Double = 0
-    @State private var nearbyCount = 0
     @State private var showSettings = false
     
     // Animation states - alle als Double für Konsistenz
@@ -50,10 +51,11 @@ struct BumpView: View {
         .ignoresSafeArea(edges: .top)
         .onAppear {
             startAllAnimations()
-            startNearbyTimer()
+            setupBLEObservers()
         }
         .onDisappear {
             stopAllTimers()
+            cleanupBLEObservers()
         }
         .sheet(isPresented: $showSettings) {
             SettingsSheet()
@@ -128,7 +130,7 @@ struct BumpView: View {
                             )
                         )
                     
-                    Text(isBumping ? "Aktiv • \(formatTime(activeTime))" : "Bereit zum Starten")
+                    Text(getStatusText())
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                 }
@@ -152,7 +154,7 @@ struct BumpView: View {
     // MARK: - Main Visualization
     private var mainVisualization: some View {
         ZStack {
-            // Outer rings - ohne komplexe Animationen
+            // Outer rings
             Circle()
                 .stroke(Color.orange.opacity(0.4), lineWidth: 2)
                 .frame(width: 260)
@@ -215,8 +217,8 @@ struct BumpView: View {
                         .foregroundColor(.white)
                         .rotationEffect(.degrees(rotationAngle))
                     
-                    if isBumping && nearbyCount > 0 {
-                        Text("\(nearbyCount)")
+                    if isBumping && bleManager.nearbyUsers.count > 0 {
+                        Text("\(bleManager.nearbyUsers.count)")
                             .font(.title3)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
@@ -230,8 +232,10 @@ struct BumpView: View {
             
             // Detection indicators
             if isBumping {
-                ForEach(0..<nearbyCount, id: \.self) { i in
-                    detectionIndicator(index: i)
+                ForEach(bleManager.nearbyUsers.indices, id: \.self) { index in
+                    if index < 6 { // Maximal 6 Indikatoren anzeigen
+                        detectionIndicator(index: index)
+                    }
                 }
             }
         }
@@ -240,7 +244,7 @@ struct BumpView: View {
     
     // MARK: - Detection Indicator
     private func detectionIndicator(index: Int) -> some View {
-        let angle = Double(index) * (360.0 / Double(max(nearbyCount, 1)))
+        let angle = Double(index) * (360.0 / Double(max(bleManager.nearbyUsers.count, 1)))
         let radius = 140.0
         
         return Circle()
@@ -257,9 +261,26 @@ struct BumpView: View {
     // MARK: - Status Section
     private var statusSection: some View {
         HStack(spacing: 16) {
-            SimpleStatusCard(icon: "heart.fill", title: "Matches", value: "12", color: .pink)
-            SimpleStatusCard(icon: "location.fill", title: "Reichweite", value: "50m", color: .blue)
-            SimpleStatusCard(icon: "bolt.fill", title: "Energie", value: "85%", color: .green)
+            SimpleStatusCard(
+                icon: "heart.fill",
+                title: "Matches",
+                value: "12",
+                color: .pink
+            )
+            
+            SimpleStatusCard(
+                icon: "location.fill",
+                title: "Reichweite",
+                value: "50m",
+                color: .blue
+            )
+            
+            SimpleStatusCard(
+                icon: "bolt.fill",
+                title: "Bluetooth",
+                value: bleManager.bluetoothReady ? "✓" : "✗",
+                color: bleManager.bluetoothReady ? .green : .red
+            )
         }
     }
     
@@ -291,6 +312,16 @@ struct BumpView: View {
                 )
                 .shadow(color: Color.orange.opacity(0.3), radius: 15, x: 0, y: 8)
             }
+            .disabled(!bleManager.bluetoothReady)
+            .opacity(bleManager.bluetoothReady ? 1.0 : 0.6)
+            
+            // Bluetooth Status Info
+            if !bleManager.bluetoothReady {
+                Text(bleManager.bluetoothStatus)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .multilineTextAlignment(.center)
+            }
             
             // Quick actions
             HStack(spacing: 12) {
@@ -303,15 +334,25 @@ struct BumpView: View {
     
     // MARK: - Actions
     private func toggleBump() {
+        guard bleManager.bluetoothReady else {
+            print("❌ Bluetooth not ready")
+            return
+        }
+        
         isBumping.toggle()
         
         if isBumping {
             startTimer()
+            // BLE Manager starten
+            bleManager.startBumpMode(userID: authManager.currentUser?.id ?? "anonymous")
         } else {
             stopTimer()
             activeTime = 0
-            nearbyCount = 0
+            // BLE Manager stoppen
+            bleManager.stopBumpMode()
         }
+        
+        print("🔄 Bump Mode: \(isBumping ? "Started" : "Stopped")")
     }
     
     private func startAllAnimations() {
@@ -357,23 +398,48 @@ struct BumpView: View {
         timer = nil
     }
     
-    private func startNearbyTimer() {
-        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
-            if isBumping {
-                nearbyCount = Int.random(in: 1...4)
-            }
-        }
-    }
-    
     private func stopAllTimers() {
         timer?.invalidate()
         timer = nil
+    }
+    
+    private func getStatusText() -> String {
+        if !bleManager.bluetoothReady {
+            return bleManager.bluetoothStatus
+        } else if isBumping {
+            return "Aktiv • \(formatTime(activeTime)) • \(bleManager.nearbyUsers.count) gefunden"
+        } else {
+            return "Bereit zum Starten"
+        }
     }
     
     private func formatTime(_ seconds: Int) -> String {
         let minutes = seconds / 60
         let secs = seconds % 60
         return String(format: "%d:%02d", minutes, secs)
+    }
+    
+    // MARK: - BLE Observer Setup
+    private func setupBLEObservers() {
+        NotificationCenter.default.addObserver(
+            forName: .bumpDetected,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let bumpEvent = notification.object as? BumpEvent {
+                handleBumpDetected(bumpEvent)
+            }
+        }
+    }
+    
+    private func cleanupBLEObservers() {
+        NotificationCenter.default.removeObserver(self, name: .bumpDetected, object: nil)
+    }
+    
+    private func handleBumpDetected(_ bumpEvent: BumpEvent) {
+        print("🎯 UI: Bump detected with \(bumpEvent.detectedUser.name)")
+        // Hier könntest du eine Bump-Benachrichtigung anzeigen
+        // oder eine Animation triggern
     }
 }
 

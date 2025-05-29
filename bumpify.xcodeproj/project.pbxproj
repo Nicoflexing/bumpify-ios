@@ -43,6 +43,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				BumpifyApp.swift,
+				Components/BumpifyLogo.swift,
 				Components/Buttons/BumpifyButton.swift,
 				Components/Cards/FeatureCard.swift,
 				Components/Forms/BumpifyTextField.swift,
@@ -493,7 +494,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = bumpify/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Bumpify nutzt Bluetooth, um andere Nutzer in der Nähe zu finden.";
+				INFOPLIST_KEY_CFBundleDisplayName = Bumpify;
 				INFOPLIST_KEY_LSApplicationCategoryType = "Bumpify nutzt Bluetooth, um andere Nutzer in der Nähe zu finden.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bumpify nutzt Bluetooth, um andere Nutzer in der Nähe zu finden.";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Bumpify sendet Bluetooth-Signale, damit andere dich finden können.\n\n\n";
@@ -528,7 +529,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = bumpify/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Bumpify nutzt Bluetooth, um andere Nutzer in der Nähe zu finden.";
+				INFOPLIST_KEY_CFBundleDisplayName = Bumpify;
 				INFOPLIST_KEY_LSApplicationCategoryType = "Bumpify nutzt Bluetooth, um andere Nutzer in der Nähe zu finden.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bumpify nutzt Bluetooth, um andere Nutzer in der Nähe zu finden.";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Bumpify sendet Bluetooth-Signale, damit andere dich finden können.\n\n\n";

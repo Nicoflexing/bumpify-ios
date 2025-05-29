@@ -1,4 +1,5 @@
-// OnboardingView.swift - Ersetze deine OnboardingView komplett (Exakt wie Figma)
+// OnboardingView.swift - Mit Logo-Integration
+// ERSETZE deine bestehende OnboardingView
 
 import SwiftUI
 
@@ -37,7 +38,7 @@ struct OnboardingView: View {
                 
                 // Content Pages
                 TabView(selection: $currentPage) {
-                    // Page 1 - Welcome
+                    // Page 1 - Welcome (MIT LOGO!)
                     OnboardingPage1()
                         .tag(0)
                     
@@ -159,21 +160,19 @@ struct OnboardingView: View {
     }
 }
 
-// MARK: - Page 1: Welcome
+// MARK: - Page 1: Welcome (MIT LOGO-INTEGRATION!)
 struct OnboardingPage1: View {
     var body: some View {
         VStack(spacing: 40) {
-            // Logo
+            // Logo Section - HIER IST DIE LOGO-INTEGRATION!
             VStack(spacing: 20) {
-                Text("bumpify")
-                    .font(.system(size: 48, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.orange, Color.red],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                // ALT: Manueller Text
+                // Text("bumpify")
+                //     .font(.system(size: 48, weight: .bold))
+                //     .foregroundStyle(LinearGradient(...))
+                
+                // NEU: Logo-Komponente verwenden
+                BumpifyLogo(size: .hero, style: .text)
                 
                 Text("Willkommen bei Bumpify")
                     .font(.title2)
@@ -186,7 +185,7 @@ struct OnboardingPage1: View {
                     .multilineTextAlignment(.center)
             }
             
-            // Features
+            // Features - bleiben gleich
             VStack(spacing: 24) {
                 FeatureRow(
                     icon: "person.2.fill",
@@ -214,7 +213,7 @@ struct OnboardingPage1: View {
     }
 }
 
-// MARK: - Page 2: Bluetooth
+// MARK: - Page 2: Bluetooth (MIT LOGO!)
 struct OnboardingPage2: View {
     var body: some View {
         VStack(spacing: 40) {
@@ -265,7 +264,7 @@ struct OnboardingPage2: View {
                     description: "Nur Menschen in deiner unmittelbaren Nähe (ca.10m)"
                 )
                 
-                // iOS Warning
+                // iOS Warning - MIT LOGO!
                 HStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.title3)
@@ -277,9 +276,18 @@ struct OnboardingPage2: View {
                             .fontWeight(.medium)
                             .foregroundColor(.white)
                         
-                        Text("aktiviere hier deinen Bumpify Tag um die iOS Beschränkung zu umgehen")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                        HStack {
+                            Text("aktiviere hier deinen ")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            
+                            // Mini-Logo in der Warnung
+                            BumpifyLogo(size: .small, style: .text)
+                            
+                            Text(" Tag")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                     }
                     
                     Spacer()
@@ -293,7 +301,7 @@ struct OnboardingPage2: View {
     }
 }
 
-// MARK: - Page 3: Notifications
+// MARK: - Page 3: Notifications (MIT LOGO!)
 struct OnboardingPage3: View {
     var body: some View {
         VStack(spacing: 40) {
@@ -324,12 +332,8 @@ struct OnboardingPage3: View {
             // Example Notification
             VStack(spacing: 20) {
                 HStack(spacing: 12) {
-                    Image(systemName: "bolt.fill")
-                        .font(.title3)
-                        .foregroundColor(.orange)
-                        .padding(8)
-                        .background(Color.orange.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    // Mini-Logo statt "bolt"
+                    BumpifyLogo(size: .small, style: .iconOnly)
                     
                     Text("Beispiel - Benachrichtigung")
                         .font(.body)
@@ -371,12 +375,11 @@ struct OnboardingPage3: View {
                 .background(Color.white.opacity(0.05))
                 .cornerRadius(12)
             }
-        }
-        .padding(.horizontal, 20)
+        }        .padding(.horizontal, 20)
     }
 }
 
-// MARK: - Page 4: Privacy
+// MARK: - Page 4: Privacy (MIT LOGO!)
 struct OnboardingPage4: View {
     var body: some View {
         VStack(spacing: 40) {
@@ -397,11 +400,20 @@ struct OnboardingPage4: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                 
-                Text("Bei Bumpify hast du die volle Kontrolle über deine Daten und wer dich sehen kann.")
-                    .font(.body)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
+                VStack(spacing: 8) {
+                    Text("Bei ")
+                        .font(.body)
+                        .foregroundColor(.gray) +
+                    Text("Bumpify")
+                        .font(.body)
+                        .foregroundColor(.orange)
+                        .fontWeight(.semibold) +
+                    Text(" hast du die volle Kontrolle über deine Daten.")
+                        .font(.body)
+                        .foregroundColor(.gray)
+                }
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
             }
             
             // Privacy Features
@@ -432,7 +444,7 @@ struct OnboardingPage4: View {
     }
 }
 
-// MARK: - Helper Views
+// MARK: - Helper Views (bleiben gleich)
 struct FeatureRow: View {
     let icon: String
     let iconColor: Color
@@ -489,4 +501,9 @@ struct BenefitRow: View {
             Spacer()
         }
     }
+}
+
+#Preview {
+    OnboardingView()
+        .environmentObject(AuthenticationManager())
 }

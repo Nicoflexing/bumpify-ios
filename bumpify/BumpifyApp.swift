@@ -293,6 +293,7 @@ struct MainAppView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
+            // Tab 0: Home
             HomeView()
                 .tabItem {
                     Image(systemName: "house.fill")
@@ -300,20 +301,23 @@ struct MainAppView: View {
                 }
                 .tag(0)
             
-            BumpView()
-                .tabItem {
-                    Image(systemName: "location.circle.fill")
-                    Text("Bump")
-                }
-                .tag(1)
-            
+            // Tab 1: Karte
             MapView()
                 .tabItem {
                     Image(systemName: "map.fill")
                     Text("Karte")
                 }
+                .tag(1)
+            
+            // Tab 2: Bump (Mittlere Position - Hauptfeature)
+            BumpView()
+                .tabItem {
+                    Image(systemName: "location.circle.fill")
+                    Text("Bump")
+                }
                 .tag(2)
             
+            // Tab 3: Chats
             MessagesView()
                 .tabItem {
                     Image(systemName: "message.fill")
@@ -321,6 +325,7 @@ struct MainAppView: View {
                 }
                 .tag(3)
             
+            // Tab 4: Profil
             ProfileView()
                 .tabItem {
                     Image(systemName: "person.fill")
@@ -329,7 +334,16 @@ struct MainAppView: View {
                 .tag(4)
         }
         .accentColor(.orange)
+        .onAppear {
+            // Optional: Starte mit Home-Tab
+            selectedTab = 0
+        }
     }
+}
+
+#Preview {
+    MainAppView()
+        .environmentObject(AuthenticationManager())
 }
 
 #Preview {
