@@ -1,4 +1,4 @@
-// BumpifyApp.swift - Komplett Saubere Version
+// BumpifyApp.swift - Vollständig korrigierte Version ohne Duplikate
 
 import SwiftUI
 
@@ -29,7 +29,7 @@ struct RootView: View {
                     if !authManager.hasCompletedOnboarding {
                         OnboardingView()
                     } else if !authManager.hasCompletedProfileSetup {
-                        ProfileSetupScreen()
+                        BumpifyProfileSetupScreen()
                     } else {
                         MainAppView()
                     }
@@ -218,72 +218,478 @@ struct LoginScreen: View {
     }
 }
 
-// MARK: - Profile Setup Screen
-struct ProfileSetupScreen: View {
+// MARK: - Profile Setup Screen (KORRIGIERT mit neuen Namen)
+struct BumpifyProfileSetupScreen: View {
     @EnvironmentObject var authManager: AuthenticationManager
+    @State private var currentPage = 0
+    
+    // Profile data
+    @State private var fullName = ""
+    @State private var birthDate = Date()
+    @State private var city = "Berlin"
+    @State private var gender = "Mann"
+    @State private var aboutText = ""
+    @State private var bumpLine = ""
+    @State private var selectedInterests: Set<String> = []
+    @State private var hasProfileImage = false
+    
+    let availableInterests = [
+        "Netflix", "Musik", "Basteln", "Filme", "Bücher",
+        "Lesen", "Reisen", "Sport", "Kochen"
+    ]
+    
+    let genderOptions = ["Mann", "Frau", "Divers"]
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Background - Exact Figma color
+            Color(red: 0.12, green: 0.16, blue: 0.24)
+                .ignoresSafeArea()
             
-            VStack(spacing: 40) {
-                Text("🎉 Profil erstellen")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
+            VStack(spacing: 0) {
+                // Header
+                headerView
                 
-                Text("Vervollständige dein Profil für die besten Matches!")
-                    .font(.title3)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+                // Progress Bar
+                progressBarView
                 
-                Spacer()
+                // Content Area
+                TabView(selection: $currentPage) {
+                    // Page 1 - Personal Info
+                    BumpifyPersonalInfoPage(
+                        fullName: $fullName,
+                        birthDate: $birthDate,
+                        city: $city,
+                        gender: $gender,
+                        genderOptions: genderOptions
+                    )
+                    .tag(0)
+                    
+                    // Page 2 - About Me
+                    BumpifyAboutMePage(
+                        aboutText: $aboutText,
+                        bumpLine: $bumpLine
+                    )
+                    .tag(1)
+                    
+                    // Page 3 - Interests
+                    BumpifyInterestsPage(
+                        selectedInterests: $selectedInterests,
+                        availableInterests: availableInterests
+                    )
+                    .tag(2)
+                    
+                    // Page 4 - Profile Image
+                    BumpifyProfileImagePage(
+                        hasProfileImage: $hasProfileImage
+                    )
+                    .tag(3)
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
-                Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.system(size: 80))
-                    .foregroundColor(.orange)
-                
-                Text("Hier kommt das Profil-Setup!")
-                    .font(.title2)
-                    .foregroundColor(.gray)
-                
-                if let user = authManager.currentUser {
-                    VStack(spacing: 8) {
-                        Text("Willkommen,")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                        
-                        Text(user.fullName)
-                            .font(.title)
-                            .fontWeight(.bold)
+                // Bottom buttons
+                bottomButtonsView
+            }
+        }
+    }
+    
+    // MARK: - Header View
+    private var headerView: some View {
+        HStack {
+            Text("Profil Setup")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(.white)
+            
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 60)
+    }
+    
+    // MARK: - Progress Bar
+    private var progressBarView: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<4, id: \.self) { index in
+                Rectangle()
+                    .fill(index <= currentPage ? Color(red: 1.0, green: 0.4, blue: 0.2) : Color.white.opacity(0.3))
+                    .frame(height: 4)
+                    .cornerRadius(2)
+                    .animation(.easeInOut(duration: 0.3), value: currentPage)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+    }
+    
+    // MARK: - Bottom Buttons
+    private var bottomButtonsView: some View {
+        VStack(spacing: 16) {
+            // Navigation buttons
+            if currentPage < 3 {
+                HStack {
+                    if currentPage > 0 {
+                        Button("Zurück") {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                currentPage -= 1
+                            }
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                    }
+                    
+                    Spacer()
+                    
+                    Button("Überspringen") {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            currentPage += 1
+                        }
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                }
+                .padding(.horizontal, 20)
+            }
+            
+            // Main button
+            Button(action: {
+                if currentPage < 3 {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        currentPage += 1
+                    }
+                } else {
+                    completeProfileSetup()
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Text(getButtonText())
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    if currentPage < 3 {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.white)
                     }
-                    .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(12)
                 }
-                
-                Spacer()
-                
-                Button("Profil später vervollständigen") {
-                    authManager.completeProfileSetup()
-                }
-                .font(.headline)
-                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding()
+                .frame(height: 50)
                 .background(
                     LinearGradient(
-                        colors: [Color.orange, Color.red],
+                        colors: [Color(red: 1.0, green: 0.4, blue: 0.2), Color(red: 1.0, green: 0.6, blue: 0.0)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .cornerRadius(12)
-                .padding(.horizontal, 32)
+                .cornerRadius(25)
             }
+            .disabled(!isCurrentPageValid())
+            .opacity(isCurrentPageValid() ? 1.0 : 0.6)
+            .padding(.horizontal, 20)
         }
+        .padding(.bottom, 40)
+    }
+    
+    // MARK: - Helper Functions
+    private func getButtonText() -> String {
+        switch currentPage {
+        case 0: return "Weiter"
+        case 1: return "Weiter"
+        case 2: return "Profil erstellen"
+        case 3: return "Fertig"
+        default: return "Weiter"
+        }
+    }
+    
+    private func isCurrentPageValid() -> Bool {
+        switch currentPage {
+        case 0: return !fullName.isEmpty
+        case 1: return true
+        case 2: return selectedInterests.count >= 3
+        case 3: return true
+        default: return true
+        }
+    }
+    
+    private func completeProfileSetup() {
+        // Update user profile
+        if var user = authManager.currentUser {
+            let nameParts = fullName.components(separatedBy: " ")
+            user.firstName = nameParts.first ?? ""
+            user.lastName = nameParts.count > 1 ? nameParts.dropFirst().joined(separator: " ") : ""
+            user.bio = aboutText
+            user.interests = Array(selectedInterests)
+            user.location = city
+            
+            authManager.currentUser = user
+        }
+        
+        authManager.completeProfileSetup()
+    }
+}
+
+// MARK: - Profile Setup Pages (mit neuen Namen)
+struct BumpifyPersonalInfoPage: View {
+    @Binding var fullName: String
+    @Binding var birthDate: Date
+    @Binding var city: String
+    @Binding var gender: String
+    let genderOptions: [String]
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 40) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Persönliche Informationen")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("Gebe hier deine persönlichen Daten ein.")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                VStack(spacing: 32) {
+                    // Name Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Name")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        TextField("M. Ali", text: $fullName)
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                    
+                    // Birth Date Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Geburtsdatum")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        DatePicker("", selection: $birthDate, displayedComponents: .date)
+                            .datePickerStyle(CompactDatePickerStyle())
+                            .labelsHidden()
+                            .colorScheme(.dark)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                    
+                    // City Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Stadt")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        TextField("Berlin", text: $city)
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                    
+                    // Gender Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Geschlecht")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        Menu {
+                            ForEach(genderOptions, id: \.self) { option in
+                                Button(option) {
+                                    gender = option
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(gender)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 40)
+        }
+    }
+}
+
+struct BumpifyAboutMePage: View {
+    @Binding var aboutText: String
+    @Binding var bumpLine: String
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 40) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Über mich")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("Erzähle anderen etwas über dich.")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                VStack(spacing: 32) {
+                    // About Text Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Über dich")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        TextField("Erzähle etwas über dich...", text: $aboutText, axis: .vertical)
+                            .lineLimit(3...6)
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                    
+                    // Bump Line Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("BumpLine")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        TextField("Deine BumpLine...", text: $bumpLine)
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 40)
+        }
+    }
+}
+
+struct BumpifyInterestsPage: View {
+    @Binding var selectedInterests: Set<String>
+    let availableInterests: [String]
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 40) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Deine Interessen")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("Wähle mindestens 3 Interessen aus.")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+                    ForEach(availableInterests, id: \.self) { interest in
+                        Button(action: {
+                            if selectedInterests.contains(interest) {
+                                selectedInterests.remove(interest)
+                            } else {
+                                selectedInterests.insert(interest)
+                            }
+                        }) {
+                            Text(interest)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(selectedInterests.contains(interest) ? .white : .white.opacity(0.8))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    selectedInterests.contains(interest)
+                                    ? Color(red: 1.0, green: 0.4, blue: 0.2)
+                                    : Color.white.opacity(0.2)
+                                )
+                                .cornerRadius(20)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 40)
+        }
+    }
+}
+
+struct BumpifyProfileImagePage: View {
+    @Binding var hasProfileImage: Bool
+    
+    var body: some View {
+        VStack(spacing: 40) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Profilbild")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text("Füge ein Foto hinzu (optional).")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            
+            VStack(spacing: 24) {
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.3))
+                        .frame(width: 160, height: 160)
+                    
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(.white)
+                    
+                    Button(action: {
+                        hasProfileImage.toggle()
+                    }) {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 40, height: 40)
+                            .overlay(
+                                Image(systemName: "plus")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                    .offset(x: 60, y: 60)
+                }
+                
+                Text("Ein Foto erhöht deine Chancen um 70%")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            
+            Spacer()
+        }
+        .padding(.top, 40)
     }
 }
 
@@ -293,7 +699,6 @@ struct MainAppView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Tab 0: Home
             HomeView()
                 .tabItem {
                     Image(systemName: "house.fill")
@@ -301,7 +706,6 @@ struct MainAppView: View {
                 }
                 .tag(0)
             
-            // Tab 1: Karte
             MapView()
                 .tabItem {
                     Image(systemName: "map.fill")
@@ -309,7 +713,6 @@ struct MainAppView: View {
                 }
                 .tag(1)
             
-            // Tab 2: Bump (Mittlere Position - Hauptfeature)
             BumpView()
                 .tabItem {
                     Image(systemName: "location.circle.fill")
@@ -317,7 +720,6 @@ struct MainAppView: View {
                 }
                 .tag(2)
             
-            // Tab 3: Chats
             MessagesView()
                 .tabItem {
                     Image(systemName: "message.fill")
@@ -325,7 +727,6 @@ struct MainAppView: View {
                 }
                 .tag(3)
             
-            // Tab 4: Profil
             ProfileView()
                 .tabItem {
                     Image(systemName: "person.fill")
@@ -334,19 +735,5 @@ struct MainAppView: View {
                 .tag(4)
         }
         .accentColor(.orange)
-        .onAppear {
-            // Optional: Starte mit Home-Tab
-            selectedTab = 0
-        }
     }
-}
-
-#Preview {
-    MainAppView()
-        .environmentObject(AuthenticationManager())
-}
-
-#Preview {
-    RootView()
-        .environmentObject(AuthenticationManager())
 }
