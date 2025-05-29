@@ -1,4 +1,4 @@
-// SettingsView.swift - Ersetze deine SettingsView komplett
+// SettingsView.swift - Alle Fehler behoben
 
 import SwiftUI
 
@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var locationEnabled = true
     @State private var bluetoothEnabled = true
     @State private var showingDeleteConfirmation = false
+    @State private var showingNotificationSettings = false
     
     var body: some View {
         NavigationView {
@@ -32,7 +33,7 @@ struct SettingsView: View {
                         
                         // App Settings Section
                         VStack(spacing: 15) {
-                            SectionHeader(title: "App-Einstellungen")
+                            SettingsSectionHeader(title: "App-Einstellungen")
                             
                             SettingsToggleItem(
                                 icon: "bell.fill",
@@ -64,7 +65,7 @@ struct SettingsView: View {
                         
                         // Privacy Settings Section
                         VStack(spacing: 15) {
-                            SectionHeader(title: "Privatsphäre")
+                            SettingsSectionHeader(title: "Privatsphäre")
                             
                             SettingsNavigationItem(
                                 icon: "eye.slash.fill",
@@ -99,7 +100,7 @@ struct SettingsView: View {
                         
                         // Account Section
                         VStack(spacing: 15) {
-                            SectionHeader(title: "Account")
+                            SettingsSectionHeader(title: "Account")
                             
                             if let user = authManager.currentUser {
                                 HStack(spacing: 15) {
@@ -113,7 +114,7 @@ struct SettingsView: View {
                                         )
                                         .frame(width: 50, height: 50)
                                         .overlay(
-                                            Text(String(user.fullName.prefix(1)))
+                                            Text(user.initials)
                                                 .font(.headline)
                                                 .fontWeight(.bold)
                                                 .foregroundColor(.white)
@@ -166,7 +167,16 @@ struct SettingsView: View {
                         
                         // Support Section
                         VStack(spacing: 15) {
-                            SectionHeader(title: "Support")
+                            SettingsSectionHeader(title: "Support")
+                            
+                            SettingsNavigationItem(
+                                icon: "bell.fill",
+                                title: "Benachrichtigungen",
+                                subtitle: "Anpassen, welche Hinweise du erhältst",
+                                color: .blue
+                            ) {
+                                showingNotificationSettings = true
+                            }
                             
                             SettingsNavigationItem(
                                 icon: "questionmark.circle.fill",
@@ -201,7 +211,7 @@ struct SettingsView: View {
                         
                         // Danger Zone
                         VStack(spacing: 15) {
-                            SectionHeader(title: "Gefahrenzone")
+                            SettingsSectionHeader(title: "Gefahrenzone")
                             
                             Button(action: {
                                 showingDeleteConfirmation = true
@@ -277,10 +287,229 @@ struct SettingsView: View {
         } message: {
             Text("Diese Aktion kann nicht rückgängig gemacht werden. Alle deine Daten werden permanent gelöscht.")
         }
+        .sheet(isPresented: $showingNotificationSettings) {
+            BumpifyNotificationSettingsView()
+        }
     }
 }
 
-struct SectionHeader: View {
+// MARK: - NotificationSettingsView
+struct BumpifyNotificationSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var allNotifications = true
+    @State private var bumpNotifications = true
+    @State private var matchNotifications = true
+    @State private var messageNotifications = true
+    @State private var eventNotifications = false
+    @State private var soundEnabled = true
+    @State private var vibrationEnabled = true
+    @State private var quietHoursEnabled = false
+    @State private var quietStartTime = Date()
+    @State private var quietEndTime = Date()
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 25) {
+                        // Header
+                        VStack(spacing: 10) {
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 50))
+                                .foregroundColor(.blue)
+                            
+                            Text("Benachrichtigungen")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        }
+                        .padding(.top, 20)
+                        
+                        // Allgemeine Einstellungen
+                        VStack(spacing: 15) {
+                            SettingsSectionHeader(title: "Allgemein")
+                            
+                            SettingsToggleItem(
+                                icon: "bell.fill",
+                                title: "Alle Benachrichtigungen",
+                                subtitle: "Aktiviert oder deaktiviert alle Push-Nachrichten",
+                                isOn: $allNotifications,
+                                color: .blue
+                            )
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        
+                        // Spezifische Benachrichtigungen
+                        VStack(spacing: 15) {
+                            SettingsSectionHeader(title: "Bump-Benachrichtigungen")
+                            
+                            SettingsToggleItem(
+                                icon: "location.circle.fill",
+                                title: "Neue Bumps",
+                                subtitle: "Benachrichtigung bei neuen Begegnungen",
+                                isOn: $bumpNotifications,
+                                color: .orange
+                            )
+                            
+                            SettingsToggleItem(
+                                icon: "heart.fill",
+                                title: "Neue Matches",
+                                subtitle: "Benachrichtigung bei erfolgreichen Matches",
+                                isOn: $matchNotifications,
+                                color: .pink
+                            )
+                            
+                            SettingsToggleItem(
+                                icon: "message.fill",
+                                title: "Neue Nachrichten",
+                                subtitle: "Benachrichtigung bei neuen Chat-Nachrichten",
+                                isOn: $messageNotifications,
+                                color: .green
+                            )
+                            
+                            SettingsToggleItem(
+                                icon: "calendar.circle.fill",
+                                title: "Event-Erinnerungen",
+                                subtitle: "Benachrichtigung bei nahegelegenen Events",
+                                isOn: $eventNotifications,
+                                color: .purple
+                            )
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        .opacity(allNotifications ? 1.0 : 0.5)
+                        .disabled(!allNotifications)
+                        
+                        // Sound & Vibration
+                        VStack(spacing: 15) {
+                            SettingsSectionHeader(title: "Sound & Vibration")
+                            
+                            SettingsToggleItem(
+                                icon: "speaker.wave.2.fill",
+                                title: "Sound",
+                                subtitle: "Benachrichtigungston abspielen",
+                                isOn: $soundEnabled,
+                                color: .yellow
+                            )
+                            
+                            SettingsToggleItem(
+                                icon: "iphone.radiowaves.left.and.right",
+                                title: "Vibration",
+                                subtitle: "Vibrieren bei Benachrichtigungen",
+                                isOn: $vibrationEnabled,
+                                color: .cyan
+                            )
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        .opacity(allNotifications ? 1.0 : 0.5)
+                        .disabled(!allNotifications)
+                        
+                        // Ruhestunden
+                        VStack(spacing: 15) {
+                            SettingsSectionHeader(title: "Ruhestunden")
+                            
+                            SettingsToggleItem(
+                                icon: "moon.fill",
+                                title: "Ruhestunden aktivieren",
+                                subtitle: "Keine Benachrichtigungen während bestimmter Zeiten",
+                                isOn: $quietHoursEnabled,
+                                color: .indigo
+                            )
+                            
+                            if quietHoursEnabled {
+                                VStack(spacing: 12) {
+                                    HStack {
+                                        Text("Von:")
+                                            .foregroundColor(.white)
+                                            .frame(width: 40, alignment: .leading)
+                                        
+                                        DatePicker("", selection: $quietStartTime, displayedComponents: .hourAndMinute)
+                                            .labelsHidden()
+                                            .colorScheme(.dark)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding()
+                                    .background(Color.white.opacity(0.02))
+                                    .cornerRadius(10)
+                                    
+                                    HStack {
+                                        Text("Bis:")
+                                            .foregroundColor(.white)
+                                            .frame(width: 40, alignment: .leading)
+                                        
+                                        DatePicker("", selection: $quietEndTime, displayedComponents: .hourAndMinute)
+                                            .labelsHidden()
+                                            .colorScheme(.dark)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding()
+                                    .background(Color.white.opacity(0.02))
+                                    .cornerRadius(10)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(15)
+                        .opacity(allNotifications ? 1.0 : 0.5)
+                        .disabled(!allNotifications)
+                        
+                        // Info Box
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundColor(.blue)
+                                Text("Hinweis")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            
+                            Text("Du kannst Benachrichtigungen auch über die iOS-Einstellungen für Bumpify verwalten. Gehe zu Einstellungen > Benachrichtigungen > Bumpify.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(15)
+                        
+                        Spacer().frame(height: 50)
+                    }
+                    .padding()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Zurück") {
+                        dismiss()
+                    }
+                    .foregroundColor(.orange)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Fertig") {
+                        dismiss()
+                    }
+                    .foregroundColor(.orange)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Helper Views (eindeutig benannt)
+struct SettingsSectionHeader: View {
     let title: String
     
     var body: some View {
