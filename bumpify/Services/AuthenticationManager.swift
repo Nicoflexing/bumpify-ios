@@ -1,21 +1,43 @@
 import SwiftUI
 import Combine
+import Foundation
 
 class AuthenticationManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var hasCompletedOnboarding = false
-    @Published var currentUser: User?
+    @Published var hasCompletedProfileSetup = false
+    @Published var currentUser: BumpifyUser?
     @Published var isLoading = false
     @Published var errorMessage: String?
     
+    private let userDefaults = UserDefaults.standard
+    
     init() {
-        // Check if user has completed onboarding
-        hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
-        isAuthenticated = UserDefaults.standard.bool(forKey: "isAuthenticated")
+        loadPersistedState()
+    }
+    
+    // MARK: - Persistence
+    private func loadPersistedState() {
+        hasCompletedOnboarding = userDefaults.bool(forKey: "hasCompletedOnboarding")
+        isAuthenticated = userDefaults.bool(forKey: "isAuthenticated")
+        hasCompletedProfileSetup = userDefaults.bool(forKey: "hasCompletedProfileSetup")
         
-        // Load user data if authenticated
         if isAuthenticated {
             loadUserData()
+        }
+    }
+    
+    private func saveUserData() {
+        if let user = currentUser,
+           let userData = try? JSONEncoder().encode(user) {
+            userDefaults.set(userData, forKey: "userData")
+        }
+    }
+    
+    private func loadUserData() {
+        if let userData = userDefaults.data(forKey: "userData"),
+           let user = try? JSONDecoder().decode(BumpifyUser.self, from: userData) {
+            currentUser = user
         }
     }
     
@@ -24,67 +46,77 @@ class AuthenticationManager: ObservableObject {
         withAnimation(.easeInOut(duration: 0.6)) {
             hasCompletedOnboarding = true
         }
-        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        userDefaults.set(true, forKey: "hasCompletedOnboarding")
+    }
+    
+    func completeProfileSetup() {
+        withAnimation(.easeInOut(duration: 0.6)) {
+            hasCompletedProfileSetup = true
+        }
+        userDefaults.set(true, forKey: "hasCompletedProfileSetup")
     }
     
     func resetOnboarding() {
         hasCompletedOnboarding = false
-        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        hasCompletedProfileSetup = false
+        userDefaults.set(false, forKey: "hasCompletedOnboarding")
+        userDefaults.set(false, forKey: "hasCompletedProfileSetup")
     }
     
     // MARK: - Authentication
     func login(email: String, password: String) {
+        guard isValidEmail(email), password.count >= 6 else {
+            errorMessage = "Ungültige E-Mail oder Passwort"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
         // Simulate API call
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            // Mock authentication logic
-            if self.isValidEmail(email) && password.count >= 6 {
-                withAnimation(.easeInOut(duration: 0.6)) {
-                    self.isAuthenticated = true
-                    self.currentUser = User(
-                        id: UUID(),
-                        firstName: "Demo",
-                        lastName: "User",
-                        email: email,
-                        profileImage: nil
-                    )
-                }
-                UserDefaults.standard.set(true, forKey: "isAuthenticated")
-                self.saveUserData()
-            } else {
-                self.errorMessage = "Ungültige E-Mail oder Passwort"
+            let user = BumpifyUser(
+                firstName: "Demo",
+                lastName: "User",
+                email: email
+            )
+            
+            withAnimation(.easeInOut(duration: 0.6)) {
+                self.isAuthenticated = true
+                self.currentUser = user
             }
+            
+            self.userDefaults.set(true, forKey: "isAuthenticated")
+            self.saveUserData()
             self.isLoading = false
         }
     }
     
     func register(firstName: String, lastName: String, email: String, password: String) {
+        guard !firstName.isEmpty, !lastName.isEmpty,
+              isValidEmail(email), password.count >= 6 else {
+            errorMessage = "Bitte alle Felder korrekt ausfüllen"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
         // Simulate API call
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            // Mock registration logic
-            if self.isValidEmail(email) && password.count >= 6 && !firstName.isEmpty && !lastName.isEmpty {
-                let newUser = User(
-                    id: UUID(),
-                    firstName: firstName,
-                    lastName: lastName,
-                    email: email,
-                    profileImage: nil
-                )
-                
-                withAnimation(.easeInOut(duration: 0.6)) {
-                    self.isAuthenticated = true
-                    self.currentUser = newUser
-                }
-                UserDefaults.standard.set(true, forKey: "isAuthenticated")
-                self.saveUserData()
-            } else {
-                self.errorMessage = "Bitte alle Felder korrekt ausfüllen"
+            let newUser = BumpifyUser(
+                firstName: firstName,
+                lastName: lastName,
+                email: email
+            )
+            
+            withAnimation(.easeInOut(duration: 0.6)) {
+                self.isAuthenticated = true
+                self.currentUser = newUser
             }
+            
+            self.userDefaults.set(true, forKey: "isAuthenticated")
+            self.saveUserData()
             self.isLoading = false
         }
     }
@@ -92,29 +124,33 @@ class AuthenticationManager: ObservableObject {
     func logout() {
         withAnimation(.easeInOut(duration: 0.6)) {
             isAuthenticated = false
+            hasCompletedProfileSetup = false
             currentUser = nil
         }
-        UserDefaults.standard.set(false, forKey: "isAuthenticated")
-        UserDefaults.standard.removeObject(forKey: "userData")
+        
+        userDefaults.set(false, forKey: "isAuthenticated")
+        userDefaults.set(false, forKey: "hasCompletedProfileSetup")
+        userDefaults.removeObject(forKey: "userData")
+        clearAllUserData()
     }
     
     // MARK: - Social Authentication
     func loginWithApple() {
         isLoading = true
         
-        // Simulate Apple Sign In
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let user = BumpifyUser(
+                firstName: "Apple",
+                lastName: "User",
+                email: "apple.user@icloud.com"
+            )
+            
             withAnimation(.easeInOut(duration: 0.6)) {
                 self.isAuthenticated = true
-                self.currentUser = User(
-                    id: UUID(),
-                    firstName: "Apple",
-                    lastName: "User",
-                    email: "apple.user@example.com",
-                    profileImage: nil
-                )
+                self.currentUser = user
             }
-            UserDefaults.standard.set(true, forKey: "isAuthenticated")
+            
+            self.userDefaults.set(true, forKey: "isAuthenticated")
             self.saveUserData()
             self.isLoading = false
         }
@@ -123,19 +159,19 @@ class AuthenticationManager: ObservableObject {
     func loginWithGoogle() {
         isLoading = true
         
-        // Simulate Google Sign In
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let user = BumpifyUser(
+                firstName: "Google",
+                lastName: "User",
+                email: "google.user@gmail.com"
+            )
+            
             withAnimation(.easeInOut(duration: 0.6)) {
                 self.isAuthenticated = true
-                self.currentUser = User(
-                    id: UUID(),
-                    firstName: "Google",
-                    lastName: "User",
-                    email: "google.user@example.com",
-                    profileImage: nil
-                )
+                self.currentUser = user
             }
-            UserDefaults.standard.set(true, forKey: "isAuthenticated")
+            
+            self.userDefaults.set(true, forKey: "isAuthenticated")
             self.saveUserData()
             self.isLoading = false
         }
@@ -143,18 +179,39 @@ class AuthenticationManager: ObservableObject {
     
     // MARK: - Password Reset
     func resetPassword(email: String) {
+        guard isValidEmail(email) else {
+            errorMessage = "Ungültige E-Mail-Adresse"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            if self.isValidEmail(email) {
-                // Show success message
-                self.errorMessage = "Passwort-Reset E-Mail wurde gesendet"
-            } else {
-                self.errorMessage = "Ungültige E-Mail-Adresse"
-            }
+            self.errorMessage = "Passwort-Reset E-Mail wurde gesendet"
             self.isLoading = false
         }
+    }
+    
+    // MARK: - Profile Management
+    func updateProfile(firstName: String? = nil, lastName: String? = nil, bio: String? = nil, age: Int? = nil, interests: [String]? = nil) {
+        guard var user = currentUser else { return }
+        
+        if let firstName = firstName { user.firstName = firstName }
+        if let lastName = lastName { user.lastName = lastName }
+        if let bio = bio { user.bio = bio }
+        if let age = age { user.age = age }
+        if let interests = interests { user.interests = interests }
+        
+        currentUser = user
+        saveUserData()
+    }
+    
+    func updateProfileImage(_ imageName: String) {
+        guard var user = currentUser else { return }
+        user.profileImage = imageName
+        currentUser = user
+        saveUserData()
     }
     
     // MARK: - Helper Methods
@@ -163,30 +220,44 @@ class AuthenticationManager: ObservableObject {
         return NSPredicate(format: "SELF MATCHES %@", emailRegex).evaluate(with: email)
     }
     
-    private func saveUserData() {
-        if let user = currentUser,
-           let userData = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(userData, forKey: "userData")
-        }
+    private func clearAllUserData() {
+        let keys = [
+            "userData",
+            "userPreferences",
+            "appState",
+            "cachedMatches",
+            "cachedConversations"
+        ]
+        
+        keys.forEach { userDefaults.removeObject(forKey: $0) }
     }
     
-    private func loadUserData() {
-        if let userData = UserDefaults.standard.data(forKey: "userData"),
-           let user = try? JSONDecoder().decode(User.self, from: userData) {
-            currentUser = user
-        }
+    // MARK: - Mock Data for Development
+    func createMockUser() -> BumpifyUser {
+        return BumpifyUser(
+            firstName: "Max",
+            lastName: "Mustermann",
+            email: "max@example.com",
+            bio: "Ich liebe es, neue Menschen kennenzulernen!",
+            age: 28,
+            interests: ["Reisen", "Musik", "Sport", "Kaffee"]
+        )
     }
-}
-
-// MARK: - User Model
-struct User: Codable, Identifiable {
-    let id: UUID
-    let firstName: String
-    let lastName: String
-    let email: String
-    let profileImage: String?
     
-    var fullName: String {
-        return "\(firstName) \(lastName)"
+    func getCurrentUserId() -> UUID? {
+        return currentUser?.id
+    }
+    
+    func isCurrentUser(_ userId: UUID) -> Bool {
+        return currentUser?.id == userId
+    }
+    
+    // MARK: - Error Handling
+    func clearError() {
+        errorMessage = nil
+    }
+    
+    func showError(_ message: String) {
+        errorMessage = message
     }
 }

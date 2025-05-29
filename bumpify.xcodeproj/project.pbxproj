@@ -39,24 +39,74 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		57450BB12DE7CD6E005CDBCA /* Exceptions for "bumpify" folder in "bumpify" target */ = {
+		57450C5C2DE8AE7D005CDBCA /* Exceptions for "bumpify" folder in "bumpify" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				BumpifyApp.swift,
+				Components/Buttons/BumpifyButton.swift,
+				Components/Cards/FeatureCard.swift,
+				Components/Forms/BumpifyTextField.swift,
+				ContentView.swift,
+				Models/DataModels.swift,
+				"Preview Content/Preview Assets.xcassets",
+				Resources/Assets.xcassets,
+				Services/AuthenticationManager.swift,
+				Services/BLEManager.swift,
+				Utils/Constants/BumpifyColors.swift,
+				Utils/Constants/BumpifyFonts.swift,
+				"Utils/Extensions/Color+Bumpify.swift",
+				Views/Authentication/LoginView.swift,
+				Views/Authentication/OnboardingView.swift,
+				Views/Authentication/OnboardingWelcomeView.swift,
+				Views/Authentication/PerfectLoginView.swift,
+				Views/Authentication/SignUpView.swift,
+				Views/Chat/ChatDetailView.swift,
+				Views/Main/BumpView.swift,
+				Views/Main/HomeView.swift,
+				Views/Main/MessagesView.swift,
+				Views/Main/ProfileView.swift,
+				Views/Map/CreateHotspotView.swift,
+				Views/Map/HotspotDetailView.swift,
+				Views/Map/MapView.swift,
+				Views/Profile/EditProfileView.swift,
+				Views/Profile/PremiumView.swift,
+				Views/Profile/SettingsView.swift,
 			);
 			target = 57450B822DE7C9CE005CDBCA /* bumpify */;
+		};
+		57450C5D2DE8AE7D005CDBCA /* Exceptions for "bumpify" folder in "bumpifyTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BumpifyApp.swift,
+				ContentView.swift,
+				Models/DataModels.swift,
+				"Preview Content/Preview Assets.xcassets",
+				Resources/Assets.xcassets,
+				Resources/Info.plist,
+				Services/AuthenticationManager.swift,
+				Services/BLEManager.swift,
+				Views/Authentication/LoginView.swift,
+				Views/Authentication/OnboardingView.swift,
+				Views/Authentication/OnboardingWelcomeView.swift,
+				Views/Authentication/PerfectLoginView.swift,
+				Views/Authentication/SignUpView.swift,
+				Views/Chat/ChatDetailView.swift,
+				Views/Main/BumpView.swift,
+				Views/Main/HomeView.swift,
+				Views/Main/MessagesView.swift,
+				Views/Main/ProfileView.swift,
+				Views/Map/CreateHotspotView.swift,
+				Views/Map/HotspotDetailView.swift,
+				Views/Map/MapView.swift,
+				Views/Profile/EditProfileView.swift,
+				Views/Profile/PremiumView.swift,
+				Views/Profile/SettingsView.swift,
+			);
+			target = 57450B922DE7C9CF005CDBCA /* bumpifyTests */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		57450B852DE7C9CE005CDBCA /* bumpify */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				57450BB12DE7CD6E005CDBCA /* Exceptions for "bumpify" folder in "bumpify" target */,
-			);
-			path = bumpify;
-			sourceTree = "<group>";
-		};
 		57450B962DE7C9CF005CDBCA /* bumpifyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = bumpifyTests;
@@ -65,6 +115,15 @@
 		57450BA02DE7C9CF005CDBCA /* bumpifyUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = bumpifyUITests;
+			sourceTree = "<group>";
+		};
+		57450C442DE8AE7C005CDBCA /* bumpify */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				57450C5C2DE8AE7D005CDBCA /* Exceptions for "bumpify" folder in "bumpify" target */,
+				57450C5D2DE8AE7D005CDBCA /* Exceptions for "bumpify" folder in "bumpifyTests" target */,
+			);
+			path = bumpify;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -100,7 +159,7 @@
 		57450B7A2DE7C9CE005CDBCA = {
 			isa = PBXGroup;
 			children = (
-				57450B852DE7C9CE005CDBCA /* bumpify */,
+				57450C442DE8AE7C005CDBCA /* bumpify */,
 				57450B962DE7C9CF005CDBCA /* bumpifyTests */,
 				57450BA02DE7C9CF005CDBCA /* bumpifyUITests */,
 				57450BB22DE7CE3C005CDBCA /* Frameworks */,
@@ -143,9 +202,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				57450B852DE7C9CE005CDBCA /* bumpify */,
-			);
 			name = bumpify;
 			packageProductDependencies = (
 			);
@@ -168,6 +224,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				57450B962DE7C9CF005CDBCA /* bumpifyTests */,
+				57450C442DE8AE7C005CDBCA /* bumpify */,
 			);
 			name = bumpifyTests;
 			packageProductDependencies = (

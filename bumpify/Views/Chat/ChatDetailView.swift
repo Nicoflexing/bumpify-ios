@@ -1,210 +1,354 @@
 import SwiftUI
 
 struct ChatDetailView: View {
-    let conversation: Conversation
-    @State private var messageText = ""
-    @State private var messages: [Message]
+    let conversation: BumpifyConversation
+    @EnvironmentObject var authManager: AuthenticationManager
     @Environment(\.dismiss) private var dismiss
     
-    init(conversation: Conversation) {
-        self.conversation = conversation
-        self._messages = State(initialValue: conversation.messages)
+    @State private var messageText = ""
+    @State private var messages: [BumpifyMessage] = []
+    @State private var isTyping = false
+    
+    private var otherUser: BumpifyUser? {
+        guard let currentUserId = authManager.getCurrentUserId() else { return nil }
+        return conversation.otherParticipant(currentUserId: currentUserId)
     }
     
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                // Chat Header
-                ChatHeaderView(user: conversation.user) {
-                    dismiss()
-                }
+        NavigationView {
+            ZStack {
+                Color(red: 0.1, green: 0.12, blue: 0.18).ignoresSafeArea()
                 
-                // Messages
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        // Bump Context Card
-                        BumpContextCard(user: conversation.user)
-                        
-                        ForEach(messages) { message in
-                            MessageBubbleView(message: message)
-                        }
-                    }
-                    .padding()
+                VStack(spacing: 0) {
+                    // Custom Header
+                    chatHeader
+                    
+                    // Messages List
+                    messagesSection
+                    
+                    // Message Input
+                    messageInputSection
                 }
-                
-                // Message Input
-                MessageInputView(
-                    messageText: $messageText,
-                    onSend: sendMessage
-                )
             }
         }
-        .navigationBarHidden(true)
+        .onAppear {
+            loadMessages()
+        }
     }
     
+    // MARK: - Chat Header
+    private var chatHeader: some View {
+        HStack(spacing: 16) {
+            // Back Button
+            Button(action: {
+                dismiss()
+            }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+            }
+            
+            // Profile Image
+            Circle()
+                .fill(Color.white.opacity(0.1))
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Group {
+                        if let user = otherUser {
+                            Text(user.firstName.prefix(1))
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                    }
+                )
+            
+            // User Info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(otherUser?.fullName ?? "Unbekannt")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Text(isTyping ? "schreibt..." : "zuletzt aktiv vor 2 Min")
+                    .font(.caption)
+                    .foregroundColor(isTyping ? Color(red: 1.0, green: 0.5, blue: 0.1) : .white.opacity(0.6))
+            }
+            
+            Spacer()
+            
+            // More Options
+            Button(action: {
+                // Show options menu
+            }) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+        }
+        .padding()
+        .background(Color(red: 0.1, green: 0.12, blue: 0.18))
+        .overlay(
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
+    
+    // MARK: - Messages Section
+    private var messagesSection: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                // Bump Context Card
+                bumpContextCard
+                
+                // Messages
+                ForEach(messages) { message in
+                    MessageBubble(
+                        message: message,
+                        isFromCurrentUser: authManager.isCurrentUser(message.senderId),
+                        otherUser: otherUser
+                    )
+                }
+                
+                // Typing Indicator
+                if isTyping {
+                    TypingIndicator(user: otherUser)
+                }
+            }
+            .padding()
+        }
+        .flipsForRightToLeftLayoutDirection(false)
+        .onTapGesture {
+            hideKeyboard()
+        }
+    }
+    
+    // MARK: - Bump Context Card
+    private var bumpContextCard: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "location.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(Color(red: 1.0, green: 0.4, blue: 0.2))
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Ihr habt euch via Bump kennengelernt!")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                    
+                    Text("Gestern um 14:30 • Murphy's Pub")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                
+                Spacer()
+            }
+            
+            if let user = otherUser, !user.interests.isEmpty {
+                HStack {
+                    Text("Gemeinsame Interessen:")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                    
+                    ForEach(user.interests.prefix(3), id: \.self) { interest in
+                        Text(interest)
+                            .font(.caption2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color(red: 1.0, green: 0.5, blue: 0.1).opacity(0.2))
+                            .foregroundColor(Color(red: 1.0, green: 0.5, blue: 0.1))
+                            .cornerRadius(8)
+                    }
+                    
+                    Spacer()
+                }
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    // MARK: - Message Input Section
+    private var messageInputSection: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 1)
+            
+            HStack(spacing: 12) {
+                // Attachment Button
+                Button(action: {
+                    // Add attachment
+                }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                
+                // Text Input
+                HStack {
+                    TextField("Nachricht schreiben...", text: $messageText, axis: .vertical)
+                        .lineLimit(1...4)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                }
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(20)
+                
+                // Send Button
+                Button(action: sendMessage) {
+                    Image(systemName: messageText.isEmpty ? "mic.fill" : "arrow.up.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(messageText.isEmpty ? .white.opacity(0.6) : Color(red: 1.0, green: 0.5, blue: 0.1))
+                }
+                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding()
+            .background(Color(red: 0.1, green: 0.12, blue: 0.18))
+        }
+    }
+    
+    // MARK: - Helper Methods
     private func sendMessage() {
-        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty,
+              let currentUserId = authManager.getCurrentUserId() else { return }
         
-        let newMessage = Message(
-            id: UUID().uuidString,
-            text: messageText,
-            isFromCurrentUser: true,
+        let newMessage = BumpifyMessage(
+            text: trimmedText,
+            senderId: currentUserId,
             timestamp: Date()
         )
         
         messages.append(newMessage)
         messageText = ""
         
-        // Simulate response after 2 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        // Simulate other user typing and responding
+        simulateOtherUserResponse()
+    }
+    
+    private func simulateOtherUserResponse() {
+        guard let otherUser = otherUser else { return }
+        
+        // Show typing indicator
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            isTyping = true
+        }
+        
+        // Send response after delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            isTyping = false
+            
             let responses = [
-                "Das ist interessant! 😊",
-                "Erzähl mir mehr davon",
-                "Cool! Wie lange machst du das schon?",
-                "Das hätte ich nicht gedacht 🤔"
+                "Das klingt interessant! 😊",
+                "Ja, das denke ich auch!",
+                "Haha, definitiv! 😄",
+                "Stimmt, da hast du recht!",
+                "Das wäre cool!",
+                "Auf jeden Fall! Wann hast du Zeit?"
             ]
             
-            if let response = responses.randomElement() {
-                let responseMessage = Message(
-                    id: UUID().uuidString,
-                    text: response,
-                    isFromCurrentUser: false,
-                    timestamp: Date()
-                )
+            let randomResponse = responses.randomElement() ?? "Interessant!"
+            
+            let responseMessage = BumpifyMessage(
+                text: randomResponse,
+                senderId: otherUser.id,
+                timestamp: Date()
+            )
+            
+            withAnimation(.easeInOut) {
                 messages.append(responseMessage)
             }
         }
     }
-}
-
-struct ChatHeaderView: View {
-    let user: User
-    let onBack: () -> Void
     
-    var body: some View {
-        HStack(spacing: 15) {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.title2)
-                    .foregroundColor(.orange)
-            }
-            
-            ZStack {
-                Circle()
-                    .fill(Color.orange.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                
-                Image(systemName: user.profileImage)
-                    .font(.title3)
-                    .foregroundColor(.orange)
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(user.name)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Text("Online")
-                    .font(.caption)
-                    .foregroundColor(.green)
-            }
-            
-            Spacer()
-            
-            Button(action: {}) {
-                Image(systemName: "info.circle")
-                    .font(.title2)
-                    .foregroundColor(.gray)
-            }
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
+    private func loadMessages() {
+        messages = conversation.messages
+    }
+    
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
-struct BumpContextCard: View {
-    let user: User
-    
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "location.circle.fill")
-                .font(.title)
-                .foregroundColor(.orange)
-            
-            Text("Ihr habt euch begegnet!")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            Text("Café Central • vor 2 Stunden")
-                .font(.caption)
-                .foregroundColor(.gray)
-            
-            if !user.interests.isEmpty {
-                HStack {
-                    Text("Gemeinsame Interessen:")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
-                    ForEach(user.interests.prefix(2), id: \.self) { interest in
-                        Text(interest)
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.2))
-                            .foregroundColor(.orange)
-                            .cornerRadius(8)
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(Color.orange.opacity(0.1))
-        .cornerRadius(12)
-        .padding(.bottom)
-    }
-}
-
-struct MessageBubbleView: View {
-    let message: Message
+// MARK: - Message Bubble
+struct MessageBubble: View {
+    let message: BumpifyMessage
+    let isFromCurrentUser: Bool
+    let otherUser: BumpifyUser?
     
     var body: some View {
         HStack {
-            if message.isFromCurrentUser {
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(message.text)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [.orange, .red],
-                                startPoint: .leading,
-                                endPoint: .trailing
+            if isFromCurrentUser {
+                Spacer(minLength: 60)
+            }
+            
+            VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
+                // Message Content
+                HStack {
+                    if !isFromCurrentUser {
+                        // Other user's profile pic
+                        Circle()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text(otherUser?.firstName.prefix(1) ?? "?")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
                             )
-                        )
-                        .foregroundColor(.white)
-                        .cornerRadius(18, corners: [.topLeft, .topRight, .bottomLeft])
+                    }
                     
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                    VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
+                        Text(message.text)
+                            .font(.body)
+                            .foregroundColor(isFromCurrentUser ? .white : .white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(
+                                isFromCurrentUser ?
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color(red: 1.0, green: 0.4, blue: 0.2),
+                                        Color(red: 1.0, green: 0.6, blue: 0.0)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ) :
+                                LinearGradient(
+                                    gradient: Gradient(colors: [Color.white.opacity(0.15)]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .clipShape(
+                                RoundedRectangle(cornerRadius: 16)
+                            )
+                        
+                        // Timestamp
+                        Text(formatTime(message.timestamp))
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.5))
+                            .padding(.horizontal, 4)
+                    }
                 }
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(message.text)
-                        .padding()
-                        .background(Color.white.opacity(0.1))
-                        .foregroundColor(.white)
-                        .cornerRadius(18, corners: [.topLeft, .topRight, .bottomRight])
-                    
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-                
-                Spacer()
+            }
+            
+            if !isFromCurrentUser {
+                Spacer(minLength: 60)
             }
         }
     }
@@ -216,47 +360,46 @@ struct MessageBubbleView: View {
     }
 }
 
-struct MessageInputView: View {
-    @Binding var messageText: String
-    let onSend: () -> Void
+// MARK: - Typing Indicator
+struct TypingIndicator: View {
+    let user: BumpifyUser?
+    @State private var animationOffset = false
     
     var body: some View {
-        HStack(spacing: 15) {
-            TextField("Nachricht schreiben...", text: $messageText)
-                .padding()
-                .background(Color.white.opacity(0.1))
-                .foregroundColor(.white)
-                .cornerRadius(20)
+        HStack {
+            Circle()
+                .fill(Color.white.opacity(0.1))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Text(user?.firstName.prefix(1) ?? "?")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                )
             
-            Button(action: onSend) {
-                Image(systemName: "paperplane.fill")
-                    .font(.title2)
-                    .foregroundColor(messageText.isEmpty ? .gray : .orange)
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.white.opacity(0.6))
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(animationOffset ? 1.2 : 0.8)
+                        .animation(
+                            Animation.easeInOut(duration: 0.6)
+                                .repeatForever()
+                                .delay(Double(index) * 0.2),
+                            value: animationOffset
+                        )
+                }
             }
-            .disabled(messageText.isEmpty)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            
+            Spacer(minLength: 60)
         }
-        .padding()
-        .background(Color.black)
-    }
-}
-
-// Custom Corner Radius Extension
-extension View {
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(RoundedCorner(radius: radius, corners: corners))
-    }
-}
-
-struct RoundedCorner: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(width: radius, height: radius)
-        )
-        return Path(path.cgPath)
+        .onAppear {
+            animationOffset = true
+        }
     }
 }
