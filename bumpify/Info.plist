@@ -2,15 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>Privacy - Location When In Use Usage Description
-</key>
-	<string>Bumpify nutzt deinen Standort für lokale Begegnungen</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>bluetooth-peripheral</string>
-		<string>bluetooth-central</string>
-	</array>
+    <key>CFBundleGetInfoString</key>
+    <string></string>
+    <key>Privacy - Location When In Use Usage Description</key>
+    <string>Bumpify nutzt deinen Standort für lokale Begegnungen</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>bluetooth-peripheral</string>
+        <string>bluetooth-central</string>
+    </array>
+    <key>UIbackgro</key>
+    <string></string>
+    
+    <!-- NEUE BLUETOOTH EINTRÄGE HIER EINFÜGEN -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Bumpify nutzt Bluetooth, um andere Nutzer in deiner Nähe zu erkennen und echte Begegnungen zu ermöglichen.</string>
+    
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>Bumpify nutzt Bluetooth, um deine Präsenz für andere Nutzer sichtbar zu machen.</string>
+    
 </dict>
 </plist>
