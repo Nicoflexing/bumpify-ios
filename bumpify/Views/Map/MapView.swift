@@ -1,4 +1,4 @@
-// MapView.swift - Ersetzt deine bestehende MapView.swift komplett
+// MapView.swift - Korrigierte Version ohne Namenskonflikte
 
 import SwiftUI
 import MapKit
@@ -13,12 +13,12 @@ struct MapView: View {
     @State private var animateStats = false
     @State private var selectedMapType = 0
     
-    // Mock data
-    @State private var nearbyHotspots = [
-        MapHotspot(name: "After Work Drinks", type: .user, participantCount: 5),
-        MapHotspot(name: "Happy Hour", type: .business, participantCount: 12),
-        MapHotspot(name: "Morning Jog", type: .user, participantCount: 3),
-        MapHotspot(name: "Coffee Break", type: .business, participantCount: 8)
+    // Mock data - mit eindeutigen Namen
+    @State private var nearbyMapHotspots: [MapLocationHotspot] = [
+        MapLocationHotspot(name: "After Work Drinks", type: .userEvent, participantCount: 5),
+        MapLocationHotspot(name: "Happy Hour", type: .businessEvent, participantCount: 12),
+        MapLocationHotspot(name: "Morning Jog", type: .userEvent, participantCount: 3),
+        MapLocationHotspot(name: "Coffee Break", type: .businessEvent, participantCount: 8)
     ]
     
     var body: some View {
@@ -54,7 +54,7 @@ struct MapView: View {
             MapFiltersView()
         }
         .sheet(isPresented: $showingCreateHotspot) {
-            CreateHotspotView()
+            CreateMapHotspotView()
         }
     }
     
@@ -139,21 +139,21 @@ struct MapView: View {
             MapStatCard(
                 icon: "person.2.fill",
                 title: "User Events",
-                value: "\(nearbyHotspots.filter { $0.type == .user }.count)",
+                value: "\(nearbyMapHotspots.filter { $0.type == .userEvent }.count)",
                 color: .orange
             )
             
             MapStatCard(
                 icon: "building.2.fill",
                 title: "Business",
-                value: "\(nearbyHotspots.filter { $0.type == .business }.count)",
+                value: "\(nearbyMapHotspots.filter { $0.type == .businessEvent }.count)",
                 color: .green
             )
             
             MapStatCard(
                 icon: "clock.fill",
                 title: "Heute",
-                value: "\(nearbyHotspots.count)",
+                value: "\(nearbyMapHotspots.count)",
                 color: .blue
             )
         }
@@ -204,18 +204,18 @@ struct MapView: View {
                     VStack {
                         HStack {
                             Spacer()
-                            MapPin(type: .user, label: "After Work")
+                            MapLocationPin(type: .userEvent, label: "After Work")
                                 .offset(x: -30, y: -40)
                             Spacer()
                         }
                         
                         HStack {
-                            MapPin(type: .business, label: "Happy Hour")
+                            MapLocationPin(type: .businessEvent, label: "Happy Hour")
                                 .offset(x: -60, y: -10)
                             
                             Spacer()
                             
-                            MapPin(type: .user, label: "Coffee")
+                            MapLocationPin(type: .userEvent, label: "Coffee")
                                 .offset(x: 40, y: 20)
                         }
                         
@@ -267,8 +267,8 @@ struct MapView: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(nearbyHotspots, id: \.id) { hotspot in
-                        HotspotCard(hotspot: hotspot)
+                    ForEach(nearbyMapHotspots, id: \.id) { hotspot in
+                        MapHotspotCard(hotspot: hotspot)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -394,9 +394,9 @@ struct MapTypeButton: View {
     }
 }
 
-// MARK: - Map Pin
-struct MapPin: View {
-    let type: HotspotType
+// MARK: - Map Location Pin (mit eindeutigem Namen)
+struct MapLocationPin: View {
+    let type: MapLocationEventType
     let label: String
     @State private var isAnimating = false
     
@@ -440,9 +440,9 @@ struct MapPin: View {
     }
 }
 
-// MARK: - Hotspot Card - Matching HomeView design
-struct HotspotCard: View {
-    let hotspot: MapHotspot
+// MARK: - Map Hotspot Card - Matching HomeView design
+struct MapHotspotCard: View {
+    let hotspot: MapLocationHotspot
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -511,28 +511,28 @@ struct HotspotCard: View {
     }
 }
 
-// MARK: - Data Models
-struct MapHotspot: Identifiable {
+// MARK: - Data Models (mit eindeutigen Namen)
+struct MapLocationHotspot: Identifiable {
     let id = UUID()
     let name: String
-    let type: HotspotType
+    let type: MapLocationEventType
     let participantCount: Int
 }
 
-enum HotspotType {
-    case user, business
+enum MapLocationEventType {
+    case userEvent, businessEvent
     
     var color: Color {
         switch self {
-        case .user: return .orange
-        case .business: return .green
+        case .userEvent: return .orange
+        case .businessEvent: return .green
         }
     }
     
     var icon: String {
         switch self {
-        case .user: return "person.2.fill"
-        case .business: return "building.2.fill"
+        case .userEvent: return "person.2.fill"
+        case .businessEvent: return "building.2.fill"
         }
     }
 }
@@ -570,8 +570,8 @@ struct MapFiltersView: View {
     }
 }
 
-// MARK: - Create Hotspot View
-struct CreateHotspotView: View {
+// MARK: - Create Map Hotspot View (umbenannt)
+struct CreateMapHotspotView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
