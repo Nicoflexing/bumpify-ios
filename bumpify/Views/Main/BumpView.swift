@@ -1,9 +1,12 @@
-// BumpView.swift - Ersetzt deine bestehende BumpView.swift komplett
+// BumpView.swift - Mit funktionierendem BLE Manager
+// Ersetzt die bestehende BumpView.swift komplett
 
 import SwiftUI
 
 struct BumpView: View {
     @EnvironmentObject var authManager: AuthenticationManager
+    @StateObject private var bleManager = BumpifyBLEManager() // BLE Manager hinzugefügt
+    
     @State private var isBumping = false
     @State private var activeTime = 0
     @State private var timer: Timer?
@@ -11,7 +14,7 @@ struct BumpView: View {
     @State private var rotationAngle: Double = 0
     @State private var showSettings = false
     @State private var animateStats = false
-    @State private var nearbyCount = 3
+    @State private var nearbyCount = 0
     
     var body: some View {
         ZStack {
@@ -22,6 +25,9 @@ struct BumpView: View {
                 VStack(spacing: 24) {
                     // Header - Matching HomeView style
                     headerSection
+                    
+                    // Bluetooth Status Card - NEU!
+                    bluetoothStatusSection
                     
                     // Status Cards - Matching HomeView stats
                     statusCardsSection
@@ -34,6 +40,11 @@ struct BumpView: View {
                     
                     // Quick Settings
                     quickSettingsSection
+                    
+                    // Nearby Users - NEU!
+                    if !bleManager.nearbyUsers.isEmpty {
+                        nearbyUsersSection
+                    }
                     
                     // Bottom padding for tab bar
                     Spacer().frame(height: 100)
@@ -54,6 +65,9 @@ struct BumpView: View {
         }
         .sheet(isPresented: $showSettings) {
             BumpSettingsView()
+        }
+        .onChange(of: bleManager.nearbyUsers) { _, newUsers in
+            nearbyCount = newUsers.count
         }
     }
     
@@ -128,6 +142,48 @@ struct BumpView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Bluetooth Status Section - NEU!
+    private var bluetoothStatusSection: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("📡 Bluetooth Status")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Spacer()
+            }
+            
+            HStack(spacing: 16) {
+                // Bluetooth Ready Status
+                StatusIndicator(
+                    icon: bleManager.bluetoothReady ? "checkmark.circle.fill" : "xmark.circle.fill",
+                    title: "Bluetooth",
+                    status: bleManager.bluetoothReady ? "Bereit" : "Nicht bereit",
+                    color: bleManager.bluetoothReady ? .green : .red
+                )
+                
+                // Scanning Status
+                StatusIndicator(
+                    icon: bleManager.isScanning ? "magnifyingglass.circle.fill" : "magnifyingglass.circle",
+                    title: "Scanning",
+                    status: bleManager.isScanning ? "Aktiv" : "Inaktiv",
+                    color: bleManager.isScanning ? .blue : .gray
+                )
+                
+                // Advertising Status
+                StatusIndicator(
+                    icon: bleManager.isAdvertising ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash",
+                    title: "Sichtbar",
+                    status: bleManager.isAdvertising ? "Ja" : "Nein",
+                    color: bleManager.isAdvertising ? .orange : .gray
+                )
+            }
+        }
+        .padding(20)
+        .background(glassBackground)
+        .cornerRadius(16)
     }
     
     // MARK: - Status Cards - Matching HomeView design
@@ -281,6 +337,24 @@ struct BumpView: View {
         }
     }
     
+    // MARK: - Nearby Users Section - NEU!
+    private var nearbyUsersSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("👥 Nutzer in der Nähe")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+            
+            LazyVStack(spacing: 12) {
+                ForEach(bleManager.nearbyUsers) { user in
+                    NearbyUserCard(user: user)
+                }
+            }
+        }
+        .padding(20)
+        .background(glassBackground)
+        .cornerRadius(16)
+    }
+    
     // MARK: - Quick Settings - Matching HomeView cards
     private var quickSettingsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -328,11 +402,18 @@ struct BumpView: View {
         
         if isBumping {
             startTimer()
-            nearbyCount = Int.random(in: 1...8)
+            // BLE Manager starten - WICHTIG!
+            if let userId = authManager.currentUser?.id {
+                bleManager.startBumpMode(userID: userId)
+                print("🚀 BLE Manager gestartet für User: \(userId)")
+            }
         } else {
             stopTimer()
             activeTime = 0
             nearbyCount = 0
+            // BLE Manager stoppen - WICHTIG!
+            bleManager.stopBumpMode()
+            print("⏹️ BLE Manager gestoppt")
         }
     }
     
@@ -351,11 +432,6 @@ struct BumpView: View {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if isBumping {
                 activeTime += 1
-                
-                // Simulate nearby users changing
-                if activeTime % 5 == 0 {
-                    nearbyCount = Int.random(in: 0...8)
-                }
             }
         }
     }
@@ -382,6 +458,117 @@ struct BumpView: View {
         let minutes = seconds / 60
         let secs = seconds % 60
         return String(format: "%d:%02d", minutes, secs)
+    }
+    
+    // MARK: - Glass Background
+    private var glassBackground: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(.ultraThinMaterial)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+    }
+}
+
+// MARK: - Status Indicator - NEU!
+struct StatusIndicator: View {
+    let icon: String
+    let title: String
+    let status: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(color)
+            
+            Text(status)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white)
+            
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(color.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Nearby User Card - NEU!
+struct NearbyUserCard: View {
+    let user: DetectedUser
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Avatar
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Text(user.name.prefix(1))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                )
+            
+            // User Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                
+                Text("\(String(format: "%.1f", user.distance))m entfernt")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            // Signal Strength
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 2) {
+                    ForEach(0..<4) { index in
+                        Rectangle()
+                            .fill(signalColor(rssi: user.rssi, bar: index))
+                            .frame(width: 4, height: CGFloat(6 + index * 2))
+                            .cornerRadius(1)
+                    }
+                }
+                
+                Text("\(user.rssi) dBm")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
+    }
+    
+    private func signalColor(rssi: Int, bar: Int) -> Color {
+        let strength = min(4, max(0, (rssi + 100) / 10))
+        return bar < strength ? .green : .gray.opacity(0.3)
     }
 }
 

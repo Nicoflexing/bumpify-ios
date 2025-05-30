@@ -1,4 +1,4 @@
-// HomeView.swift - Bereinigte Version ohne BumpNotification Definitionen
+// HomeView.swift - Bereinigte Version ohne BumpNotification Definition
 
 import SwiftUI
 
@@ -20,6 +20,14 @@ struct HomeView: View {
     @State private var showingNotificationBanner = false
     @State private var showingBumpDetail = false
     @State private var selectedBump: RecentBump?
+    
+    // Navigation States für Schnellaktionen
+    @State private var navigateToBump = false
+    @State private var navigateToMap = false
+    @State private var navigateToMessages = false
+    @State private var showingCreateHotspot = false
+    @State private var showingEditProfile = false
+    @State private var showingSettings = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     let notificationTimer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
@@ -50,8 +58,8 @@ struct HomeView: View {
                     // Animated Stats Cards
                     statsSection
                     
-                    // Quick Actions
-                    quickActionsSection
+                    // Quick Actions - Erweitert mit funktionierenden Aktionen
+                    enhancedQuickActionsSection
                     
                     // Recent Bumps
                     recentBumpsSection
@@ -91,7 +99,35 @@ struct HomeView: View {
             BumpDetailView(bump: bump)
         }
         .sheet(item: $selectedNotification) { notification in
-            BumpNotificationView(notification: notification)
+            BumpNotificationDetailView(notification: notification)
+        }
+        .sheet(isPresented: $showingCreateHotspot) {
+            CreateHotspotView()
+        }
+        .sheet(isPresented: $showingEditProfile) {
+            EditProfileView()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        // Navigation Handling
+        .onChange(of: navigateToBump) { _, newValue in
+            if newValue {
+                NotificationCenter.default.post(name: .navigateToBump, object: nil)
+                navigateToBump = false
+            }
+        }
+        .onChange(of: navigateToMap) { _, newValue in
+            if newValue {
+                NotificationCenter.default.post(name: .navigateToMap, object: nil)
+                navigateToMap = false
+            }
+        }
+        .onChange(of: navigateToMessages) { _, newValue in
+            if newValue {
+                NotificationCenter.default.post(name: .navigateToMessages, object: nil)
+                navigateToMessages = false
+            }
         }
     }
     
@@ -160,18 +196,18 @@ struct HomeView: View {
                     // Animated pulse indicator
                     ZStack {
                         Circle()
-                            .fill(Color.green)
+                            .fill(notification.type.color)
                             .frame(width: 12, height: 12)
                         
                         Circle()
-                            .fill(Color.green.opacity(0.3))
+                            .fill(notification.type.color.opacity(0.3))
                             .frame(width: 24, height: 24)
                             .scaleEffect(animateStats ? 1.5 : 1.0)
                             .opacity(animateStats ? 0.0 : 1.0)
                     }
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("🎉 Neuer Bump!")
+                        Text("🎉 \(notification.type.title)!")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.white)
                         
@@ -198,13 +234,13 @@ struct HomeView: View {
                 .padding()
                 .background(
                     LinearGradient(
-                        colors: [Color.green.opacity(0.8), Color.mint.opacity(0.6)],
+                        colors: [notification.type.color.opacity(0.8), notification.type.color.opacity(0.6)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
                 .cornerRadius(16)
-                .shadow(color: Color.green.opacity(0.3), radius: 10, x: 0, y: 5)
+                .shadow(color: notification.type.color.opacity(0.3), radius: 10, x: 0, y: 5)
                 .transition(.asymmetric(
                     insertion: .move(edge: .top).combined(with: .opacity),
                     removal: .move(edge: .top).combined(with: .opacity)
@@ -357,6 +393,7 @@ struct HomeView: View {
                 animate: animateStats
             ) {
                 triggerHapticFeedback(.impact(.medium))
+                navigateToMessages = true
             }
             
             InteractiveStatCard(
@@ -368,6 +405,7 @@ struct HomeView: View {
                 animate: animateStats
             ) {
                 triggerHapticFeedback(.impact(.medium))
+                navigateToBump = true
             }
             
             InteractiveStatCard(
@@ -379,12 +417,13 @@ struct HomeView: View {
                 animate: animateStats
             ) {
                 triggerHapticFeedback(.impact(.medium))
+                navigateToMap = true
             }
         }
     }
     
-    // MARK: - Quick Actions
-    private var quickActionsSection: some View {
+    // MARK: - Enhanced Quick Actions Section
+    private var enhancedQuickActionsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("⚡ Schnellaktionen")
@@ -392,6 +431,10 @@ struct HomeView: View {
                     .foregroundColor(.white)
                 
                 Spacer()
+                
+                Text("Tippe zum Öffnen")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
             }
             
             HStack(spacing: 12) {
@@ -402,7 +445,7 @@ struct HomeView: View {
                     gradient: [Color.orange, Color.red],
                     hapticType: .impact(.heavy)
                 ) {
-                    // Start bump mode
+                    navigateToBump = true
                 }
                 
                 EnhancedQuickActionCard(
@@ -412,7 +455,7 @@ struct HomeView: View {
                     gradient: [Color.green, Color.mint],
                     hapticType: .impact(.medium)
                 ) {
-                    // Create hotspot
+                    showingCreateHotspot = true
                 }
             }
             
@@ -424,17 +467,39 @@ struct HomeView: View {
                     gradient: [Color.blue, Color.cyan],
                     hapticType: .impact(.light)
                 ) {
-                    // Open map
+                    navigateToMap = true
                 }
                 
                 EnhancedQuickActionCard(
                     icon: "message.fill",
                     title: "Neue Chats",
-                    subtitle: "\(newNotifications.count) ungelesen",
+                    subtitle: getUnreadMessagesText(),
                     gradient: [Color.purple, Color.pink],
                     hapticType: .impact(.light)
                 ) {
-                    // Open messages
+                    navigateToMessages = true
+                }
+            }
+            
+            HStack(spacing: 12) {
+                EnhancedQuickActionCard(
+                    icon: "person.crop.circle.fill",
+                    title: "Profil bearbeiten",
+                    subtitle: "Daten aktualisieren",
+                    gradient: [Color.indigo, Color.purple],
+                    hapticType: .impact(.light)
+                ) {
+                    showingEditProfile = true
+                }
+                
+                EnhancedQuickActionCard(
+                    icon: "gear.circle.fill",
+                    title: "Einstellungen",
+                    subtitle: "App konfigurieren",
+                    gradient: [Color.gray, Color.secondary],
+                    hapticType: .impact(.light)
+                ) {
+                    showingSettings = true
                 }
             }
         }
@@ -452,6 +517,7 @@ struct HomeView: View {
                 
                 Button("Alle anzeigen") {
                     triggerHapticFeedback(.impact(.light))
+                    navigateToBump = true
                 }
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.orange)
@@ -488,6 +554,7 @@ struct HomeView: View {
                 
                 Button("Karte öffnen") {
                     triggerHapticFeedback(.impact(.light))
+                    navigateToMap = true
                 }
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.orange)
@@ -505,6 +572,7 @@ struct HomeView: View {
                         ForEach(nearbyHotspots) { hotspot in
                             TappableHotspotCard(hotspot: hotspot) {
                                 triggerHapticFeedback(.impact(.medium))
+                                navigateToMap = true
                             }
                         }
                     }
@@ -524,6 +592,7 @@ struct HomeView: View {
                 
                 Button(action: {
                     triggerHapticFeedback(.impact(.heavy))
+                    navigateToBump = true
                 }) {
                     ZStack {
                         Circle()
@@ -579,6 +648,15 @@ struct HomeView: View {
         }
     }
     
+    private func getUnreadMessagesText() -> String {
+        let unreadCount = newNotifications.count
+        if unreadCount > 0 {
+            return "\(unreadCount) ungelesen"
+        } else {
+            return "Alle gelesen"
+        }
+    }
+    
     private func startAnimations() {
         withAnimation(.easeInOut(duration: 1.0)) {
             animateStats = true
@@ -590,10 +668,7 @@ struct HomeView: View {
         isRefreshing = true
         triggerHapticFeedback(.impact(.medium))
         
-        // Simulate network delay
         try? await Task.sleep(nanoseconds: 1_500_000_000)
-        
-        // Reload data
         loadHomeData()
         
         isRefreshing = false
@@ -601,22 +676,11 @@ struct HomeView: View {
     }
     
     private func simulateNewNotification() {
-        let messages = [
-            "Lisa ist in deiner Nähe! 📍",
-            "Max möchte dich kennenlernen 👋",
-            "Anna hat dich geliked! 💖",
-            "Neues Event in der Nähe: Happy Hour 🍹"
-        ]
-        
         if Bool.random() && newNotifications.count < 3 {
-            let notification = BumpNotification(
-                id: UUID().uuidString,
-                message: messages.randomElement() ?? "Neue Aktivität!",
-                timestamp: Date(),
-                type: .newBump
-            )
+            let sampleNotifications = BumpNotification.sampleData
+            let randomNotification = sampleNotifications.randomElement()!
             
-            newNotifications.append(notification)
+            newNotifications.append(randomNotification)
             
             withAnimation(.spring()) {
                 showingNotificationBanner = true
@@ -630,11 +694,6 @@ struct HomeView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             simulateNewNotification()
         }
-    }
-    
-    private func handleNotificationTap(_ notification: BumpNotification) {
-        selectedNotification = notification
-        showingNotificationDetail = true
     }
     
     private func triggerHapticFeedback(_ type: HapticFeedbackType) {
@@ -652,7 +711,6 @@ struct HomeView: View {
     }
     
     private func loadHomeData() {
-        // Mock data
         recentBumps = [
             RecentBump(
                 id: "1",
@@ -754,10 +812,7 @@ struct InteractiveStatCard: View {
             .scaleEffect(isPressed ? 0.95 : (scale * (animate ? 1.0 : 0.8)))
             .opacity(opacity)
             .onAppear {
-                withAnimation(
-                    .spring(response: 0.6, dampingFraction: 0.8)
-                    .delay(delay)
-                ) {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(delay)) {
                     scale = 1.0
                     opacity = 1.0
                 }
@@ -795,27 +850,41 @@ struct EnhancedQuickActionCard: View {
     let action: () -> Void
     
     @State private var isPressed = false
+    @State private var showSuccess = false
     
     var body: some View {
         Button(action: {
             triggerHapticFeedback(hapticType)
+            
+            withAnimation(.easeInOut(duration: 0.15)) {
+                showSuccess = true
+            }
+            
             action()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showSuccess = false
+                }
+            }
         }) {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(
                             LinearGradient(
-                                colors: gradient,
+                                colors: showSuccess ? [.green, .mint] : gradient,
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 40, height: 40)
+                        .scaleEffect(showSuccess ? 1.1 : 1.0)
                     
-                    Image(systemName: icon)
+                    Image(systemName: showSuccess ? "checkmark" : icon)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
+                        .scaleEffect(showSuccess ? 1.2 : 1.0)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -829,11 +898,27 @@ struct EnhancedQuickActionCard: View {
                 }
                 
                 Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+                    .scaleEffect(isPressed ? 1.2 : 1.0)
             }
             .padding(16)
             .background(glassBackground)
             .cornerRadius(16)
             .scaleEffect(isPressed ? 0.95 : 1.0)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: showSuccess ? [.green.opacity(0.5), .mint.opacity(0.3)] : [.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: showSuccess ? 2 : 0
+                    )
+            )
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: 0) { pressing in
@@ -871,7 +956,7 @@ struct EnhancedQuickActionCard: View {
     }
 }
 
-// MARK: - Simplified Bump Card
+// MARK: - Other Components (SimpleBumpCard, TappableHotspotCard, etc.)
 struct SimpleBumpCard: View {
     let bump: RecentBump
     let onTap: () -> Void
@@ -879,7 +964,6 @@ struct SimpleBumpCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 16) {
-                // Avatar with status indicator
                 ZStack {
                     Circle()
                         .fill(
@@ -895,14 +979,10 @@ struct SimpleBumpCard: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
                     
-                    // Status indicator
                     Circle()
                         .fill(bump.isMatched ? Color.green : Color.orange)
                         .frame(width: 16, height: 16)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                        )
+                        .overlay(Circle().stroke(Color.black, lineWidth: 2))
                         .offset(x: 18, y: -18)
                 }
                 
@@ -1062,7 +1142,8 @@ struct TappableHotspotCard: View {
     }
 }
 
-// MARK: - Bump Detail View
+// MARK: - Detail Views
+
 struct BumpDetailView: View {
     let bump: RecentBump
     @Environment(\.dismiss) private var dismiss
@@ -1084,6 +1165,68 @@ struct BumpDetailView: View {
                     
                     Text(bump.location)
                         .foregroundColor(.gray)
+                    
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Schließen") {
+                        dismiss()
+                    }
+                    .foregroundColor(.orange)
+                }
+            }
+        }
+    }
+}
+
+struct BumpNotificationDetailView: View {
+    let notification: BumpNotification
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(red: 0.12, green: 0.16, blue: 0.24)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 30) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [notification.type.color, notification.type.color.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 80, height: 80)
+                        
+                        Image(systemName: notification.type.icon)
+                            .font(.system(size: 35))
+                            .foregroundColor(.white)
+                    }
+                    
+                    VStack(spacing: 16) {
+                        Text("🎉 \(notification.type.title)!")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Text(notification.message)
+                            .font(.title2)
+                            .foregroundColor(.orange)
+                            .multilineTextAlignment(.center)
+                        
+                        if let location = notification.location {
+                            Text("📍 \(location)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                    }
                     
                     Spacer()
                 }
@@ -1145,7 +1288,7 @@ struct EmptyStatePlaceholder: View {
     }
 }
 
-// MARK: - Data Models (nur die lokalen Models, KEINE BumpNotification!)
+// MARK: - Local Data Models (ohne BumpNotification!)
 
 enum HapticFeedbackType {
     case success
@@ -1191,6 +1334,13 @@ enum HomeHotspotType {
         case .business: return "building.2.fill"
         }
     }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    static let navigateToBump = Notification.Name("navigateToBump")
+    static let navigateToMap = Notification.Name("navigateToMap")
+    static let navigateToMessages = Notification.Name("navigateToMessages")
 }
 
 #Preview {
