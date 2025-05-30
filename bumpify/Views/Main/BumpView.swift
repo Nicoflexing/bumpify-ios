@@ -34,6 +34,7 @@ struct BumpView: View {
             // Background
             backgroundGradient
             
+            // Main Content
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     // Header
@@ -81,22 +82,25 @@ struct BumpView: View {
             
             // Floating particles
             floatingParticles
-            
-            // ✅ NEUES MATCH OVERLAY (anstatt fullScreenCover)
-            if showingMatchOverlay,
-               let currentUser = authManager.currentUser,
-               let matchedUser = matchedUser {
-                BumpMatchOverlay(
-                    isShowing: $showingMatchOverlay,
-                    user1: currentUser,
-                    user2: matchedUser,
-                    matchLocation: matchLocation
-                )
-                .environmentObject(authManager)
-                .transition(.opacity)
-                .zIndex(1000) // Stelle sicher, dass es über allem anderen liegt
-            }
         }
+        // ✅ OVERLAY HIER AUSSERHALB DES ZSTACK - GANZ OBEN!
+        .overlay(
+            Group {
+                if showingMatchOverlay,
+                   let currentUser = authManager.currentUser,
+                   let matchedUser = matchedUser {
+                    BumpMatchOverlay(
+                        isShowing: $showingMatchOverlay,
+                        user1: currentUser,
+                        user2: matchedUser,
+                        matchLocation: matchLocation
+                    )
+                    .environmentObject(authManager)
+                    .transition(.opacity)
+                    .animation(.spring(), value: showingMatchOverlay)
+                }
+            }
+        )
         .ignoresSafeArea(edges: .top)
         .onAppear {
             startAnimations()
@@ -406,11 +410,12 @@ struct BumpView: View {
         print("🎉 MATCH erstellt mit \(request.detectedUser.name)!")
         
         let matchUser = BumpifyUser(
-            firstName: request.detectedUser.name,
-            lastName: "",
+            firstName: request.detectedUser.name.components(separatedBy: " ").first ?? request.detectedUser.name,
+            lastName: request.detectedUser.name.components(separatedBy: " ").count > 1 ?
+                      request.detectedUser.name.components(separatedBy: " ").dropFirst().joined(separator: " ") : "",
             email: "match@bumpify.com",
-            interests: ["Bumpify Match"],
-            age: 25,
+            interests: ["Bumpify Match", "Begegnungen"],
+            age: Int.random(in: 22...35),
             bio: "Ihr habt euch über Bumpify kennengelernt!",
             location: request.location ?? "Unbekannt"
         )
@@ -418,7 +423,7 @@ struct BumpView: View {
         matchedUser = matchUser
         matchLocation = request.location ?? "Unbekannter Ort"
         
-        // ✅ GEÄNDERT: Verwende das Overlay anstatt fullScreenCover
+        // ✅ KORRIGIERT: Verwende das schöne Overlay anstatt fullScreenCover
         withAnimation(.spring()) {
             showingMatchOverlay = true
         }
@@ -766,11 +771,15 @@ struct BumpView: View {
     // ✅ TEST FUNCTIONS
     
     private func triggerTestBump() {
+        // ✅ GEÄNDERT: Zurück zum echten Bump-Flow mit Anfrage
+        let testUserNames = ["Anna Schmidt", "Max Weber", "Lisa Klein", "Tom Fischer", "Sarah Müller", "David Klein"]
+        let testLocations = ["Café Central", "Stadtpark", "Universitätsbibliothek", "Murphy's Pub", "Fitnessstudio", "Bahnhof"]
+        
         let testUser = DetectedUser(
             id: "test-user-\(Int.random(in: 1000...9999))",
-            name: ["Anna Schmidt", "Max Weber", "Lisa Klein", "Tom Fischer"].randomElement()!,
-            rssi: -65,
-            distance: 8.5,
+            name: testUserNames.randomElement() ?? "Test User",
+            rssi: Int.random(in: -80...(-60)),
+            distance: Double.random(in: 5.0...15.0),
             firstDetected: Date(),
             lastSeen: Date(),
             services: [],
@@ -781,18 +790,18 @@ struct BumpView: View {
             id: UUID().uuidString,
             detectedUser: testUser,
             timestamp: Date(),
-            location: "Test Location",
-            distance: 8.5,
+            location: testLocations.randomElement() ?? "Test Location",
+            distance: testUser.distance,
             duration: 2.0
         )
         
+        // ✅ Zeige die Bump-Anfrage (Akzeptieren/Ablehnen)
         handleNewBumpDetection(testEvent)
     }
     
     // ✅ GEÄNDERTE TEST MATCH FUNKTION - Verwendet jetzt Overlay!
     private func triggerTestMatch() {
-        guard let currentUser = authManager.currentUser else { return }
-        
+        // ✅ KORRIGIERT: Entferne die ungenutzte Variable
         let testUser = BumpifyUser(
             firstName: "Test",
             lastName: "Match",
