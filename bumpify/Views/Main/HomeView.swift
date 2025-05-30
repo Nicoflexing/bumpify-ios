@@ -1,9 +1,10 @@
-// HomeView.swift - Bereinigte Version ohne BumpNotification Definition
+// HomeView.swift - Erweiterte Version mit Business Bumps
 
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var authManager: AuthenticationManager
+    @StateObject private var businessBumpManager = BusinessBumpManager()
     @State private var recentBumps: [RecentBump] = []
     @State private var nearbyHotspots: [HomeHotspot] = []
     @State private var showingProfile = false
@@ -13,6 +14,8 @@ struct HomeView: View {
     // State-Variablen für Benachrichtigungen
     @State private var selectedNotification: BumpNotification?
     @State private var showingNotificationDetail = false
+    @State private var selectedBusinessBump: BusinessBump?
+    @State private var showingBusinessBumpDetail = false
     
     // Interactive Features State
     @State private var isRefreshing = false
@@ -21,6 +24,9 @@ struct HomeView: View {
     @State private var showingBumpDetail = false
     @State private var selectedBump: RecentBump?
     
+    // Business Bump States
+    @State private var showingBusinessBumpBanner = false
+    @State private var newBusinessBumpNotification: BumpNotification?
     
     // Navigation States für Schnellaktionen
     @State private var navigateToBump = false
@@ -29,6 +35,7 @@ struct HomeView: View {
     @State private var showingCreateHotspot = false
     @State private var showingEditProfile = false
     @State private var showingSettings = false
+    @State private var showingBusinessBumpsList = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     let notificationTimer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
@@ -48,16 +55,24 @@ struct HomeView: View {
                     // Header with live updates
                     headerSection
                     
-                    // Live notification banner
+                    // Live notification banner (normale Bumps)
                     if showingNotificationBanner && !newNotifications.isEmpty {
                         liveNotificationBanner
+                    }
+                    
+                    // Business Bump Notification Banner
+                    if showingBusinessBumpBanner, let businessNotification = newBusinessBumpNotification {
+                        businessBumpNotificationBanner(notification: businessNotification)
                     }
                     
                     // Time and Weather Widget
                     timeWeatherWidget
                     
-                    // Animated Stats Cards
-                    statsSection
+                    // Animated Stats Cards (erweitert mit Business Bumps)
+                    enhancedStatsSection
+                    
+                    // Business Bumps Section (NEU!)
+                    businessBumpsSection
                     
                     // Quick Actions - Erweitert mit funktionierenden Aktionen
                     enhancedQuickActionsSection
@@ -86,6 +101,7 @@ struct HomeView: View {
             loadHomeData()
             startAnimations()
             simulateNewBumps()
+            setupBusinessBumpNotifications()
         }
         .onReceive(timer) { input in
             currentTime = input
@@ -102,6 +118,9 @@ struct HomeView: View {
         .sheet(item: $selectedNotification) { notification in
             BumpNotificationDetailView(notification: notification)
         }
+        .sheet(item: $selectedBusinessBump) { businessBump in
+            BusinessBumpDetailView(businessBump: businessBump)
+        }
         .sheet(isPresented: $showingCreateHotspot) {
             CreateHotspotView()
         }
@@ -110,6 +129,10 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showingBusinessBumpsList) {
+            BusinessBumpsListView()
+                .environmentObject(businessBumpManager)
         }
         
         // Navigation Handling
@@ -264,6 +287,92 @@ struct HomeView: View {
         }
     }
     
+    // MARK: - Business Bump Notification Banner (NEU!)
+    private func businessBumpNotificationBanner(notification: BumpNotification) -> some View {
+        Button(action: {
+            triggerHapticFeedback(.impact(.medium))
+            showingBusinessBumpsList = true
+            withAnimation(.spring()) {
+                showingBusinessBumpBanner = false
+            }
+        }) {
+            HStack(spacing: 12) {
+                // Business Icon mit Animation
+                ZStack {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 40, height: 40)
+                    
+                    Circle()
+                        .fill(Color.green.opacity(0.3))
+                        .frame(width: 60, height: 60)
+                        .scaleEffect(animateStats ? 1.5 : 1.0)
+                        .opacity(animateStats ? 0.0 : 1.0)
+                    
+                    Image(systemName: "building.2.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("🏪 Business Angebot!")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text(notification.message)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                        .lineLimit(2)
+                    
+                    if let location = notification.location {
+                        Text("📍 \(location)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(spacing: 4) {
+                    Text("ANGEBOT")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("ANSEHEN")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(8)
+            }
+            .padding(16)
+            .background(
+                LinearGradient(
+                    colors: [Color.green.opacity(0.8), Color.mint.opacity(0.6)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(16)
+            .shadow(color: Color.green.opacity(0.4), radius: 12, x: 0, y: 6)
+            .transition(.asymmetric(
+                insertion: .move(edge: .top).combined(with: .opacity),
+                removal: .move(edge: .top).combined(with: .opacity)
+            ))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            // Auto-dismiss after 7 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 7) {
+                withAnimation(.spring()) {
+                    showingBusinessBumpBanner = false
+                }
+            }
+        }
+    }
+    
     // MARK: - Header Section
     private var headerSection: some View {
         HStack(alignment: .top) {
@@ -320,12 +429,13 @@ struct HomeView: View {
                         .foregroundColor(.white)
                     
                     // Notification badge
-                    if newNotifications.count > 1 {
+                    let totalNotifications = newNotifications.count + (businessBumpManager.nearbyBusinessBumps.count > 0 ? 1 : 0)
+                    if totalNotifications > 0 {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 20, height: 20)
                             .overlay(
-                                Text("\(min(newNotifications.count, 9))")
+                                Text("\(min(totalNotifications, 9))")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(.white)
                             )
@@ -383,9 +493,9 @@ struct HomeView: View {
         .buttonStyle(PlainButtonStyle())
     }
     
-    // MARK: - Stats Section
-    private var statsSection: some View {
-        HStack(spacing: 16) {
+    // MARK: - Enhanced Stats Section (mit Business Bumps)
+    private var enhancedStatsSection: some View {
+        HStack(spacing: 12) {
             InteractiveStatCard(
                 icon: "heart.fill",
                 title: "Matches",
@@ -410,16 +520,66 @@ struct HomeView: View {
                 navigateToBump = true
             }
             
+            // NEU: Business Bumps Stat
             InteractiveStatCard(
-                icon: "person.2.fill",
-                title: "In der Nähe",
-                value: "8",
-                color: .blue,
+                icon: "building.2.fill",
+                title: "Angebote",
+                value: "\(businessBumpManager.nearbyBusinessBumps.count)",
+                color: .green,
                 delay: 0.4,
                 animate: animateStats
             ) {
                 triggerHapticFeedback(.impact(.medium))
-                navigateToMap = true
+                showingBusinessBumpsList = true
+            }
+        }
+    }
+    
+    // MARK: - Business Bumps Section (NEU!)
+    private var businessBumpsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            BusinessBumpSectionHeader(
+                title: "🏪 Angebote in der Nähe",
+                subtitle: businessBumpManager.nearbyBusinessBumps.isEmpty ? "Keine Angebote verfügbar" : "\(businessBumpManager.nearbyBusinessBumps.count) Angebote gefunden",
+                icon: "building.2.fill"
+            ) {
+                showingBusinessBumpsList = true
+            }
+            
+            if businessBumpManager.nearbyBusinessBumps.isEmpty {
+                EmptyStatePlaceholder(
+                    icon: "building.2",
+                    title: "Keine Business Angebote",
+                    subtitle: "Besuche lokale Geschäfte, um exklusive Angebote zu entdecken!"
+                )
+            } else {
+                // Zeige die 2 besten Business Bumps
+                VStack(spacing: 12) {
+                    ForEach(businessBumpManager.nearbyBusinessBumps.prefix(2)) { businessBump in
+                        CompactBusinessBumpCard(bump: businessBump) {
+                            selectedBusinessBump = businessBump
+                            showingBusinessBumpDetail = true
+                            businessBumpManager.markAsClicked(businessBump)
+                        }
+                    }
+                }
+                
+                // "Alle anzeigen" Button wenn mehr als 2 vorhanden
+                if businessBumpManager.nearbyBusinessBumps.count > 2 {
+                    Button("Alle \(businessBumpManager.nearbyBusinessBumps.count) Angebote anzeigen") {
+                        showingBusinessBumpsList = true
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.green)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                    )
+                }
             }
         }
     }
@@ -451,57 +611,35 @@ struct HomeView: View {
                 }
                 
                 EnhancedQuickActionCard(
+                    icon: "building.2.fill",
+                    title: "Business Angebote",
+                    subtitle: "\(businessBumpManager.nearbyBusinessBumps.count) verfügbar",
+                    gradient: [Color.green, Color.mint],
+                    hapticType: .impact(.medium)
+                ) {
+                    showingBusinessBumpsList = true
+                }
+            }
+            
+            HStack(spacing: 12) {
+                EnhancedQuickActionCard(
                     icon: "plus.circle.fill",
                     title: "Hotspot erstellen",
                     subtitle: "Event planen",
-                    gradient: [Color.green, Color.mint],
+                    gradient: [Color.blue, Color.cyan],
                     hapticType: .impact(.medium)
                 ) {
                     showingCreateHotspot = true
                 }
-            }
-            
-            HStack(spacing: 12) {
+                
                 EnhancedQuickActionCard(
                     icon: "map.fill",
                     title: "Karte öffnen",
                     subtitle: "Umgebung erkunden",
-                    gradient: [Color.blue, Color.cyan],
-                    hapticType: .impact(.light)
-                ) {
-                    navigateToMap = true
-                }
-                
-                EnhancedQuickActionCard(
-                    icon: "message.fill",
-                    title: "Neue Chats",
-                    subtitle: getUnreadMessagesText(),
                     gradient: [Color.purple, Color.pink],
                     hapticType: .impact(.light)
                 ) {
-                    navigateToMessages = true
-                }
-            }
-            
-            HStack(spacing: 12) {
-                EnhancedQuickActionCard(
-                    icon: "person.crop.circle.fill",
-                    title: "Profil bearbeiten",
-                    subtitle: "Daten aktualisieren",
-                    gradient: [Color.indigo, Color.purple],
-                    hapticType: .impact(.light)
-                ) {
-                    showingEditProfile = true
-                }
-                
-                EnhancedQuickActionCard(
-                    icon: "gear.circle.fill",
-                    title: "Einstellungen",
-                    subtitle: "App konfigurieren",
-                    gradient: [Color.gray, Color.secondary],
-                    hapticType: .impact(.light)
-                ) {
-                    showingSettings = true
+                    navigateToMap = true
                 }
             }
         }
@@ -639,6 +777,26 @@ struct HomeView: View {
             )
     }
     
+    // MARK: - Setup Business Bump Notifications
+    private func setupBusinessBumpNotifications() {
+        // Lausche auf Business Bump Notifications
+        NotificationCenter.default.addObserver(
+            forName: .businessBumpDetected,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let bumpNotification = notification.object as? BumpNotification {
+                newBusinessBumpNotification = bumpNotification
+                withAnimation(.spring()) {
+                    showingBusinessBumpBanner = true
+                }
+            }
+        }
+        
+        // Starte Business Bump Manager für Demo
+        businessBumpManager.simulateBusinessBumpsForTesting()
+    }
+    
     // MARK: - Helper Functions
     private func getGreeting() -> String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -672,6 +830,7 @@ struct HomeView: View {
         
         try? await Task.sleep(nanoseconds: 1_500_000_000)
         loadHomeData()
+        businessBumpManager.refreshBusinessBumps()
         
         isRefreshing = false
         triggerHapticFeedback(.success)
@@ -695,6 +854,24 @@ struct HomeView: View {
     private func simulateNewBumps() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             simulateNewNotification()
+        }
+        
+        // Simuliere Business Bump Notification nach 5 Sekunden
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            if !businessBumpManager.nearbyBusinessBumps.isEmpty {
+                let businessBump = businessBumpManager.nearbyBusinessBumps.first!
+                let notification = BumpNotification(
+                    message: "\(businessBump.businessName): \(businessBump.offerTitle)",
+                    type: .event,
+                    userName: businessBump.businessName,
+                    location: businessBump.location.name
+                )
+                
+                newBusinessBumpNotification = notification
+                withAnimation(.spring()) {
+                    showingBusinessBumpBanner = true
+                }
+            }
         }
     }
     
@@ -770,7 +947,77 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Interactive Components
+// MARK: - Business Bumps List View (NEU!)
+struct BusinessBumpsListView: View {
+    @EnvironmentObject var businessBumpManager: BusinessBumpManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedBusinessBump: BusinessBump?
+    @State private var showingBusinessBumpDetail = false
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(red: 0.12, green: 0.16, blue: 0.24)
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        if businessBumpManager.nearbyBusinessBumps.isEmpty {
+                            VStack(spacing: 20) {
+                                Image(systemName: "building.2")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.white.opacity(0.3))
+                                
+                                Text("Keine Business Angebote")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                
+                                Text("Besuche lokale Geschäfte, um exklusive Angebote zu entdecken!")
+                                    .font(.body)
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.top, 100)
+                        } else {
+                            ForEach(businessBumpManager.nearbyBusinessBumps) { businessBump in
+                                BusinessBumpCard(
+                                    bump: businessBump,
+                                    onTap: {
+                                        selectedBusinessBump = businessBump
+                                        showingBusinessBumpDetail = true
+                                        businessBumpManager.markAsClicked(businessBump)
+                                    },
+                                    onClaim: {
+                                        businessBumpManager.markAsClaimed(businessBump)
+                                    }
+                                )
+                            }
+                        }
+                        
+                        Spacer().frame(height: 100)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("🏪 Business Angebote")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Fertig") {
+                        dismiss()
+                    }
+                    .foregroundColor(.orange)
+                }
+            }
+        }
+        .sheet(item: $selectedBusinessBump) { businessBump in
+            BusinessBumpDetailView(businessBump: businessBump)
+        }
+    }
+}
+
+// MARK: - Interactive Components (bereits vorhanden, unverändert)
 
 struct InteractiveStatCard: View {
     let icon: String
@@ -958,7 +1205,7 @@ struct EnhancedQuickActionCard: View {
     }
 }
 
-// MARK: - Other Components (SimpleBumpCard, TappableHotspotCard, etc.)
+// MARK: - Other Components (bereits vorhanden, unverändert)
 struct SimpleBumpCard: View {
     let bump: RecentBump
     let onTap: () -> Void
@@ -1144,7 +1391,7 @@ struct TappableHotspotCard: View {
     }
 }
 
-// MARK: - Detail Views
+// MARK: - Detail Views (bereits vorhanden, unverändert)
 
 struct BumpDetailView: View {
     let bump: RecentBump
