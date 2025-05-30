@@ -78,6 +78,7 @@
 				Views/Map/MapView.swift,
 				Views/Match/BumpMatchOverlay.swift,
 				Views/Match/BumpMatchView.swift,
+				Views/Match/BumpRequestOverlay.swift,
 				Views/Profile/EditProfileView.swift,
 				Views/Profile/PremiumView.swift,
 				Views/Profile/SettingsView.swift,
