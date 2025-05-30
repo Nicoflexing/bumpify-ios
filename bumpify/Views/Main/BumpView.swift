@@ -1,4 +1,4 @@
-// BumpView.swift - Korrigierte Version ohne Konflikte
+// BumpView.swift - Komplette Version mit BumpMatchOverlay
 // Ersetze deine bestehende BumpView.swift komplett mit diesem Code
 
 import SwiftUI
@@ -24,8 +24,8 @@ struct BumpView: View {
     @State private var pendingBumpRequests: [BumpRequestData] = []
     @State private var showingLocationPermission = false
     
-    // Match Integration
-    @State private var showingMatchView = false
+    // ✅ MATCH OVERLAY INTEGRATION (GEÄNDERT!)
+    @State private var showingMatchOverlay = false
     @State private var matchedUser: BumpifyUser?
     @State private var matchLocation = ""
     
@@ -81,6 +81,21 @@ struct BumpView: View {
             
             // Floating particles
             floatingParticles
+            
+            // ✅ NEUES MATCH OVERLAY (anstatt fullScreenCover)
+            if showingMatchOverlay,
+               let currentUser = authManager.currentUser,
+               let matchedUser = matchedUser {
+                BumpMatchOverlay(
+                    isShowing: $showingMatchOverlay,
+                    user1: currentUser,
+                    user2: matchedUser,
+                    matchLocation: matchLocation
+                )
+                .environmentObject(authManager)
+                .transition(.opacity)
+                .zIndex(1000) // Stelle sicher, dass es über allem anderen liegt
+            }
         }
         .ignoresSafeArea(edges: .top)
         .onAppear {
@@ -92,17 +107,6 @@ struct BumpView: View {
         }
         .sheet(isPresented: $showSettings) {
             BumpSettingsViewInternal()
-        }
-        .fullScreenCover(isPresented: $showingMatchView) {
-            if let currentUser = authManager.currentUser,
-               let matchedUser = matchedUser {
-                BumpMatchView(
-                    user1: currentUser,
-                    user2: matchedUser,
-                    matchLocation: matchLocation
-                )
-                .environmentObject(authManager)
-            }
         }
         .onChange(of: bleManager.nearbyUsers) { _, newUsers in
             nearbyCount = newUsers.count
@@ -397,6 +401,7 @@ struct BumpView: View {
         }
     }
     
+    // ✅ GEÄNDERTE MATCH FUNKTION - Verwendet jetzt Overlay!
     private func createMatch(from request: BumpRequestData) {
         print("🎉 MATCH erstellt mit \(request.detectedUser.name)!")
         
@@ -412,7 +417,11 @@ struct BumpView: View {
         
         matchedUser = matchUser
         matchLocation = request.location ?? "Unbekannter Ort"
-        showingMatchView = true
+        
+        // ✅ GEÄNDERT: Verwende das Overlay anstatt fullScreenCover
+        withAnimation(.spring()) {
+            showingMatchOverlay = true
+        }
         
         triggerBumpHapticFeedback(.success)
     }
@@ -780,6 +789,7 @@ struct BumpView: View {
         handleNewBumpDetection(testEvent)
     }
     
+    // ✅ GEÄNDERTE TEST MATCH FUNKTION - Verwendet jetzt Overlay!
     private func triggerTestMatch() {
         guard let currentUser = authManager.currentUser else { return }
         
@@ -795,12 +805,37 @@ struct BumpView: View {
         
         matchedUser = testUser
         matchLocation = "Test Café"
-        showingMatchView = true
+        
+        // ✅ GEÄNDERT: Verwende das Overlay
+        withAnimation(.spring()) {
+            showingMatchOverlay = true
+        }
     }
     
     private func testLocationRetrieval() {
         locationManager.getCurrentLocation { location in
             print("📍 Aktueller Ort: \(location ?? "Nicht verfügbar")")
+        }
+    }
+    
+    // ✅ GEÄNDERTE SIMULATE MATCH FUNKTION - Verwendet jetzt Overlay!
+    private func simulateMatchWithNearbyUser(_ detectedUser: DetectedUser) {
+        let user = BumpifyUser(
+            firstName: detectedUser.name,
+            lastName: "",
+            email: "user@bumpify.com",
+            interests: ["Bumpify User"],
+            age: 25,
+            bio: "Ein echter Bumpify-Nutzer in deiner Nähe!",
+            location: "In der Nähe"
+        )
+        
+        matchedUser = user
+        matchLocation = "Aktuelle Position"
+        
+        // ✅ GEÄNDERT: Verwende das Overlay
+        withAnimation(.spring()) {
+            showingMatchOverlay = true
         }
     }
     
@@ -862,22 +897,6 @@ struct BumpView: View {
         let minutes = seconds / 60
         let secs = seconds % 60
         return String(format: "%d:%02d", minutes, secs)
-    }
-    
-    private func simulateMatchWithNearbyUser(_ detectedUser: DetectedUser) {
-        let user = BumpifyUser(
-            firstName: detectedUser.name,
-            lastName: "",
-            email: "user@bumpify.com",
-            interests: ["Bumpify User"],
-            age: 25,
-            bio: "Ein echter Bumpify-Nutzer in deiner Nähe!",
-            location: "In der Nähe"
-        )
-        
-        matchedUser = user
-        matchLocation = "Aktuelle Position"
-        showingMatchView = true
     }
     
     private func triggerBumpHapticFeedback(_ type: BumpHapticFeedbackType) {
