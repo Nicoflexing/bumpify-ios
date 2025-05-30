@@ -1,11 +1,11 @@
-// BumpView.swift - Mit funktionierendem BLE Manager
+// BumpView.swift - Korrigierte Version ohne Fehler
 // Ersetzt die bestehende BumpView.swift komplett
 
 import SwiftUI
 
 struct BumpView: View {
     @EnvironmentObject var authManager: AuthenticationManager
-    @StateObject private var bleManager = BumpifyBLEManager() // BLE Manager hinzugefügt
+    @StateObject private var bleManager = BumpifyBLEManager()
     
     @State private var isBumping = false
     @State private var activeTime = 0
@@ -15,6 +15,11 @@ struct BumpView: View {
     @State private var showSettings = false
     @State private var animateStats = false
     @State private var nearbyCount = 0
+    
+    // ✅ MATCH-INTEGRATION - KORRIGIERT
+    @State private var showingMatchView = false
+    @State private var matchedUser: BumpifyUser?
+    @State private var matchLocation = ""
     
     var body: some View {
         ZStack {
@@ -26,7 +31,10 @@ struct BumpView: View {
                     // Header - Matching HomeView style
                     headerSection
                     
-                    // Bluetooth Status Card - NEU!
+                    // 🧪 TEST SEKTION - Zum einfachen Testen
+                    testSection
+                    
+                    // Bluetooth Status Card
                     bluetoothStatusSection
                     
                     // Status Cards - Matching HomeView stats
@@ -41,7 +49,7 @@ struct BumpView: View {
                     // Quick Settings
                     quickSettingsSection
                     
-                    // Nearby Users - NEU!
+                    // Nearby Users
                     if !bleManager.nearbyUsers.isEmpty {
                         nearbyUsersSection
                     }
@@ -66,9 +74,80 @@ struct BumpView: View {
         .sheet(isPresented: $showSettings) {
             BumpSettingsView()
         }
+        // ✅ KORRIGIERTE MATCH VIEW PRESENTATION
+        .fullScreenCover(isPresented: $showingMatchView) {
+            if let currentUser = authManager.currentUser,
+               let matchedUser = matchedUser {
+                BumpMatchView(
+                    user1: currentUser,
+                    user2: matchedUser,
+                    matchLocation: matchLocation
+                )
+                .environmentObject(authManager) // ✅ WICHTIG: EnvironmentObject weitergeben
+            }
+        }
         .onChange(of: bleManager.nearbyUsers) { _, newUsers in
             nearbyCount = newUsers.count
         }
+        // ✅ AUTOMATISCHE MATCH-ERKENNUNG
+        .onReceive(NotificationCenter.default.publisher(for: .bumpDetected)) { notification in
+            if let bumpEvent = notification.object as? BumpEvent {
+                handlePotentialMatch(bumpEvent)
+            }
+        }
+    }
+    
+    // ✅ NEUE TEST SEKTION
+    private var testSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("🧪 Test-Bereich")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    // Test Match Button
+                    TestButton(
+                        icon: "heart.fill",
+                        title: "Test Match",
+                        subtitle: "Match Animation",
+                        color: .pink
+                    ) {
+                        triggerTestMatch()
+                    }
+                    
+                    // Test Bump Button
+                    TestButton(
+                        icon: "location.circle.fill",
+                        title: "Test Bump",
+                        subtitle: "Neue Begegnung",
+                        color: .orange
+                    ) {
+                        triggerTestBump()
+                    }
+                    
+                    // Random Match Button
+                    TestButton(
+                        icon: "shuffle",
+                        title: "Zufalls-Match",
+                        subtitle: "Random User",
+                        color: .purple
+                    ) {
+                        triggerRandomMatch()
+                    }
+                }
+                .padding(.horizontal, 1)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.yellow.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
     
     // MARK: - Background - Matching HomeView
@@ -144,7 +223,7 @@ struct BumpView: View {
         }
     }
     
-    // MARK: - Bluetooth Status Section - NEU!
+    // MARK: - Bluetooth Status Section
     private var bluetoothStatusSection: some View {
         VStack(spacing: 12) {
             HStack {
@@ -337,7 +416,7 @@ struct BumpView: View {
         }
     }
     
-    // MARK: - Nearby Users Section - NEU!
+    // MARK: - Nearby Users Section
     private var nearbyUsersSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("👥 Nutzer in der Nähe")
@@ -346,7 +425,10 @@ struct BumpView: View {
             
             LazyVStack(spacing: 12) {
                 ForEach(bleManager.nearbyUsers) { user in
-                    NearbyUserCard(user: user)
+                    NearbyUserCard(user: user) {
+                        // ✅ DIREKT MATCH SIMULIEREN
+                        simulateMatchWithNearbyUser(user)
+                    }
                 }
             }
         }
@@ -396,13 +478,120 @@ struct BumpView: View {
         }
     }
     
+    // ✅ MARK: - KORRIGIERTE MATCH-FUNKTIONEN
+    
+    private func triggerTestMatch() {
+        guard let currentUser = authManager.currentUser else {
+            print("❌ Kein aktueller User verfügbar")
+            return
+        }
+        
+        let testUser = BumpifyUser(
+            firstName: "Anna",
+            lastName: "Schmidt",
+            email: "anna@test.com",
+            interests: ["Musik", "Reisen", "Fotografie"],
+            age: 24,
+            bio: "Liebt es neue Orte zu entdecken und spielt gerne Gitarre",
+            location: "München"
+        )
+        
+        presentMatch(with: testUser, at: "Café Central")
+    }
+    
+    private func triggerTestBump() {
+        // Simuliere einen normalen Bump ohne Match
+        print("🎯 Test Bump ausgelöst!")
+        triggerHapticFeedback(.impact(.medium))
+        
+        // Hier könnte eine Bump-Benachrichtigung gezeigt werden
+        // showBumpNotification(...)
+    }
+    
+    private func triggerRandomMatch() {
+        guard let currentUser = authManager.currentUser else {
+            print("❌ Kein aktueller User verfügbar")
+            return
+        }
+        
+        let randomUsers = [
+            BumpifyUser(firstName: "Lisa", lastName: "Weber", email: "lisa@test.com", interests: ["Sport", "Kochen"], age: 26, bio: "Fitness-Enthusiastin", location: "Berlin"),
+            BumpifyUser(firstName: "Max", lastName: "Fischer", email: "max@test.com", interests: ["Gaming", "Tech"], age: 28, bio: "Software Developer", location: "Hamburg"),
+            BumpifyUser(firstName: "Sarah", lastName: "Klein", email: "sarah@test.com", interests: ["Kunst", "Design"], age: 25, bio: "Graphic Designer", location: "Köln"),
+            BumpifyUser(firstName: "Tom", lastName: "Meyer", email: "tom@test.com", interests: ["Musik", "Film"], age: 27, bio: "Musician & Filmmaker", location: "Frankfurt")
+        ]
+        
+        let randomUser = randomUsers.randomElement()!
+        let randomLocations = ["Stadtpark", "Bibliothek", "Einkaufszentrum", "Restaurant", "Fitnessstudio"]
+        let randomLocation = randomLocations.randomElement()!
+        
+        presentMatch(with: randomUser, at: randomLocation)
+    }
+    
+    private func simulateMatchWithNearbyUser(_ detectedUser: DetectedUser) {
+        guard let currentUser = authManager.currentUser else {
+            print("❌ Kein aktueller User verfügbar")
+            return
+        }
+        
+        // Konvertiere DetectedUser zu BumpifyUser für Match
+        let user = BumpifyUser(
+            firstName: detectedUser.name,
+            lastName: "",
+            email: "user@bumpify.com",
+            interests: ["Bumpify User"],
+            age: 25,
+            bio: "Ein echter Bumpify-Nutzer in deiner Nähe!",
+            location: "In der Nähe"
+        )
+        
+        presentMatch(with: user, at: "Aktuelle Position")
+    }
+    
+    private func presentMatch(with user: BumpifyUser, at location: String) {
+        guard authManager.currentUser != nil else {
+            print("❌ Kein aktueller User verfügbar für Match")
+            return
+        }
+        
+        triggerHapticFeedback(.success)
+        
+        matchedUser = user
+        matchLocation = location
+        
+        // Kurze Verzögerung für bessere UX
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            showingMatchView = true
+        }
+    }
+    
+    private func handlePotentialMatch(_ bumpEvent: BumpEvent) {
+        guard authManager.currentUser != nil else { return }
+        
+        // ✅ FEHLER BEHOBEN - Korrekte random Syntax
+        if Bool.random() && Double.random(in: 0.0...1.0) < 0.3 {
+            // Konvertiere BumpEvent zu Match
+            let user = BumpifyUser(
+                firstName: bumpEvent.detectedUser.name,
+                lastName: "",
+                email: "bumped@bumpify.com",
+                interests: ["Real Bump"],
+                age: 25,
+                bio: "Echte Begegnung über Bluetooth!",
+                location: bumpEvent.location
+            )
+            
+            presentMatch(with: user, at: bumpEvent.location)
+        }
+    }
+    
     // MARK: - Helper Functions
     private func toggleBump() {
         isBumping.toggle()
         
         if isBumping {
             startTimer()
-            // BLE Manager starten - WICHTIG!
+            // BLE Manager starten
             if let userId = authManager.currentUser?.id {
                 bleManager.startBumpMode(userID: userId)
                 print("🚀 BLE Manager gestartet für User: \(userId)")
@@ -411,7 +600,7 @@ struct BumpView: View {
             stopTimer()
             activeTime = 0
             nearbyCount = 0
-            // BLE Manager stoppen - WICHTIG!
+            // BLE Manager stoppen
             bleManager.stopBumpMode()
             print("⏹️ BLE Manager gestoppt")
         }
@@ -460,6 +649,20 @@ struct BumpView: View {
         return String(format: "%d:%02d", minutes, secs)
     }
     
+    private func triggerHapticFeedback(_ type: BumpHapticFeedbackType) {
+        switch type {
+        case .success:
+            let impactFeedback = UINotificationFeedbackGenerator()
+            impactFeedback.notificationOccurred(.success)
+        case .impact(let intensity):
+            let impactFeedback = UIImpactFeedbackGenerator(style: intensity)
+            impactFeedback.impactOccurred()
+        case .selection:
+            let selectionFeedback = UISelectionFeedbackGenerator()
+            selectionFeedback.selectionChanged()
+        }
+    }
+    
     // MARK: - Glass Background
     private var glassBackground: some View {
         RoundedRectangle(cornerRadius: 16)
@@ -475,7 +678,150 @@ struct BumpView: View {
     }
 }
 
-// MARK: - Status Indicator - NEU!
+// ✅ MARK: - NEUE TEST BUTTON KOMPONENTE
+struct TestButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: {
+            triggerHaptic()
+            action()
+        }) {
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(color.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(color)
+                }
+                
+                VStack(spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+            .frame(width: 80)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(color.opacity(isPressed ? 0.3 : 0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(color.opacity(0.4), lineWidth: 1)
+                    )
+            )
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0) { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        } perform: {}
+    }
+    
+    private func triggerHaptic() {
+        let impact = UIImpactFeedbackGenerator(style: .medium)
+        impact.impactOccurred()
+    }
+}
+
+// MARK: - ERWEITERTE NEARBY USER CARD
+struct NearbyUserCard: View {
+    let user: DetectedUser
+    let onTap: (() -> Void)?
+    
+    init(user: DetectedUser, onTap: (() -> Void)? = nil) {
+        self.user = user
+        self.onTap = onTap
+    }
+    
+    var body: some View {
+        Button(action: {
+            onTap?()
+        }) {
+            HStack(spacing: 12) {
+                // Avatar
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Text(user.name.prefix(1))
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    )
+                
+                // User Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(user.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Text("\(String(format: "%.1f", user.distance))m entfernt")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                Spacer()
+                
+                // Signal Strength + Match Button
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 2) {
+                        ForEach(0..<4) { index in
+                            Rectangle()
+                                .fill(signalColor(rssi: user.rssi, bar: index))
+                                .frame(width: 4, height: CGFloat(6 + index * 2))
+                                .cornerRadius(1)
+                        }
+                    }
+                    
+                    if onTap != nil {
+                        Text("Tap = Match")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.orange.opacity(0.8))
+                    }
+                    
+                    Text("\(user.rssi) dBm")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(onTap != nil ? 0.08 : 0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(onTap == nil)
+    }
+    
+    private func signalColor(rssi: Int, bar: Int) -> Color {
+        let strength = min(4, max(0, (rssi + 100) / 10))
+        return bar < strength ? .green : .gray.opacity(0.3)
+    }
+}
+
+// MARK: - Helper Views (definiert hier um Konflikte zu vermeiden)
 struct StatusIndicator: View {
     let icon: String
     let title: String
@@ -509,70 +855,6 @@ struct StatusIndicator: View {
     }
 }
 
-// MARK: - Nearby User Card - NEU!
-struct NearbyUserCard: View {
-    let user: DetectedUser
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Avatar
-            Circle()
-                .fill(Color.orange)
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Text(user.name.prefix(1))
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                )
-            
-            // User Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(user.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                
-                Text("\(String(format: "%.1f", user.distance))m entfernt")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            
-            Spacer()
-            
-            // Signal Strength
-            VStack(alignment: .trailing, spacing: 2) {
-                HStack(spacing: 2) {
-                    ForEach(0..<4) { index in
-                        Rectangle()
-                            .fill(signalColor(rssi: user.rssi, bar: index))
-                            .frame(width: 4, height: CGFloat(6 + index * 2))
-                            .cornerRadius(1)
-                    }
-                }
-                
-                Text("\(user.rssi) dBm")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-    }
-    
-    private func signalColor(rssi: Int, bar: Int) -> Color {
-        let strength = min(4, max(0, (rssi + 100) / 10))
-        return bar < strength ? .green : .gray.opacity(0.3)
-    }
-}
-
-// MARK: - Status Card - Matching HomeView design
 struct StatusCard: View {
     let icon: String
     let title: String
@@ -634,7 +916,6 @@ struct StatusCard: View {
     }
 }
 
-// MARK: - Quick Setting Card - Matching HomeView design
 struct QuickSettingCard: View {
     let icon: String
     let title: String
@@ -688,7 +969,6 @@ struct QuickSettingCard: View {
     }
 }
 
-// MARK: - Settings View
 struct BumpSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     
@@ -722,6 +1002,13 @@ struct BumpSettingsView: View {
             }
         }
     }
+}
+
+// MARK: - Haptic Feedback Type
+enum BumpHapticFeedbackType {
+    case success
+    case impact(UIImpactFeedbackGenerator.FeedbackStyle)
+    case selection
 }
 
 #Preview {

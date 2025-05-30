@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var showingBumpDetail = false
     @State private var selectedBump: RecentBump?
     
+    
     // Navigation States für Schnellaktionen
     @State private var navigateToBump = false
     @State private var navigateToMap = false
@@ -110,6 +111,7 @@ struct HomeView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
+        
         // Navigation Handling
         .onChange(of: navigateToBump) { _, newValue in
             if newValue {
