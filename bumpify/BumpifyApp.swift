@@ -1,4 +1,4 @@
-// BumpifyApp.swift - Vollständig korrigierte Version ohne Duplikate
+// BumpifyApp.swift - Vollständige Version OHNE BumpifySplashView (da separate Datei)
 
 import SwiftUI
 
@@ -23,66 +23,23 @@ struct RootView: View {
     var body: some View {
         Group {
             if showSplash {
-                SplashView()
+                BumpifySplashView {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        showSplash = false
+                    }
+                }
             } else {
                 if authManager.isAuthenticated {
                     if !authManager.hasCompletedOnboarding {
-                        OnboardingView()
+                        ModernOnboardingView()
                     } else if !authManager.hasCompletedProfileSetup {
-                        BumpifyProfileSetupScreen()
+                        ModernProfileSetupView()
                     } else {
                         MainAppView()
                     }
                 } else {
                     LoginScreen()
                 }
-            }
-        }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                withAnimation {
-                    showSplash = false
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Splash View
-struct SplashView: View {
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
-            VStack(spacing: 20) {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.orange, Color.red],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 100, height: 100)
-                    .overlay(
-                        Image(systemName: "location.circle.fill")
-                            .font(.system(size: 45))
-                            .foregroundColor(.white)
-                    )
-                
-                Text("bumpify")
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.orange, Color.red],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                
-                Text("Echte Menschen, echte Begegnungen")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
             }
         }
     }
@@ -218,7 +175,7 @@ struct LoginScreen: View {
     }
 }
 
-// MARK: - Profile Setup Screen (KORRIGIERT mit neuen Namen)
+// MARK: - Profile Setup Screen
 struct BumpifyProfileSetupScreen: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @State private var currentPage = 0
@@ -427,7 +384,7 @@ struct BumpifyProfileSetupScreen: View {
     }
 }
 
-// MARK: - Profile Setup Pages (mit neuen Namen)
+// MARK: - Profile Setup Pages
 struct BumpifyPersonalInfoPage: View {
     @Binding var fullName: String
     @Binding var birthDate: Date
